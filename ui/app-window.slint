@@ -1,0 +1,348 @@
+import {
+    Button,
+    CheckBox,
+    ComboBox,
+    HorizontalBox,
+    LineEdit,
+    ListView,
+    Palette,
+    ProgressIndicator,
+    ScrollView,
+    VerticalBox
+} from "std-widgets.slint";
+
+component SectionBox inherits VerticalBox {
+    in property <length> content_padding: 6px;
+    in property <bool> fill_height: false;
+
+    vertical-stretch: root.fill_height ? 1 : 0;
+    max-height: root.fill_height ? 100000px : self.min-height;
+
+    Rectangle {
+        border-radius: 6px;
+        background: Palette.alternate-background;
+        border-width: 1px;
+        border-color: Palette.border;
+        vertical-stretch: root.fill_height ? 1 : 0;
+
+        VerticalBox {
+            padding: root.content_padding;
+            alignment: start;
+
+            @children
+        }
+    }
+}
+
+export component MainWindow inherits Window {
+    title: "cpp-audio-converter";
+    preferred-width: 920px;
+    preferred-height: 640px;
+    min-width: 760px;
+    min-height: 560px;
+
+    private property <string> default_prefix_affix: "converted_";
+    private property <string> default_postfix_affix: "_converted";
+    private property <length> page_padding: 6px;
+    private property <length> group_padding: 6px;
+    private property <length> header_spacing: 2px;
+    private property <length> section_spacing: 2px;
+    private property <length> block_spacing: 8px;
+    private property <length> label_spacing: 2px;
+    private property <length> inline_spacing: 8px;
+    private property <length> action_spacing: 6px;
+    private property <length> control_row_height: 22px;
+
+    in-out property <string> input_path;
+    in-out property <int> input_mode_index;
+    in-out property <bool> overwrite_originals;
+    in-out property <string> output_directory;
+    in-out property <int> file_name_rule_index;
+    in-out property <string> file_name_affix;
+    in-out property <int> sample_rate_index;
+    in-out property <int> output_format_index;
+    in-out property <int> bit_depth_index;
+    in-out property <float> progress_value;
+    in-out property <string> status_text;
+    in-out property <bool> is_running;
+    in property <[string]> log_lines;
+
+    callback request_run();
+    callback request_pick_input_file();
+    callback request_pick_input_directory();
+    callback request_pick_output_directory();
+
+    ScrollView {
+        width: 100%;
+        height: 100%;
+
+        VerticalBox {
+            x: 0;
+            y: 0;
+            padding: root.page_padding;
+            spacing: root.section_spacing;
+            min-width: max(720px, root.width - root.page_padding * 2);
+
+            VerticalBox {
+                spacing: root.header_spacing;
+                vertical-stretch: 0;
+
+                Text {
+                    text: "Audio Converter";
+                    font-size: 22px;
+                }
+
+                Text {
+                    text: "Single-window WAV / AIFF converter for stereo files";
+                    color: #666666;
+                }
+            }
+
+            SectionBox {
+                content_padding: root.group_padding;
+                VerticalBox {
+                    spacing: root.block_spacing;
+                    alignment: start;
+
+                    VerticalBox {
+                        spacing: root.label_spacing;
+                        alignment: start;
+                        max-height: self.min-height;
+
+                        Text { text: "Input mode"; }
+                        ComboBox {
+                            model: ["Single file", "Single folder"];
+                            current-index <=> root.input_mode_index;
+                            enabled: !root.is_running;
+                            min-height: root.control_row_height;
+                            max-height: root.control_row_height;
+                        }
+                    }
+
+                    VerticalBox {
+                        spacing: root.label_spacing;
+                        alignment: start;
+
+                        Text { text: root.input_mode_index == 0 ? "Input file" : "Input folder"; }
+                        LineEdit {
+                            text <=> root.input_path;
+                            enabled: !root.is_running;
+                            min-height: root.control_row_height;
+                            max-height: root.control_row_height;
+                            placeholder-text: root.input_mode_index == 0 ? "/path/to/input.wav" : "/path/to/input-folder";
+                        }
+
+                        HorizontalBox {
+                            spacing: root.action_spacing;
+                            alignment: start;
+                            max-height: self.min-height;
+
+                            Button {
+                                text: "Select File";
+                                enabled: !root.is_running;
+                                min-height: root.control_row_height;
+                                max-height: root.control_row_height;
+                                clicked => {
+                                    root.request_pick_input_file();
+                                }
+                            }
+
+                            Button {
+                                text: "Select Folder";
+                                enabled: !root.is_running;
+                                min-height: root.control_row_height;
+                                max-height: root.control_row_height;
+                                clicked => {
+                                    root.request_pick_input_directory();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            SectionBox {
+                content_padding: root.group_padding;
+                VerticalBox {
+                    spacing: root.block_spacing;
+                    alignment: start;
+
+                    CheckBox {
+                        text: "Overwrite original files";
+                        checked <=> root.overwrite_originals;
+                        enabled: !root.is_running;
+                    }
+
+                    VerticalBox {
+                        spacing: root.label_spacing;
+                        alignment: start;
+
+                        Text { text: "Output directory"; }
+                        LineEdit {
+                            text <=> root.output_directory;
+                            enabled: !root.overwrite_originals && !root.is_running;
+                            min-height: root.control_row_height;
+                            max-height: root.control_row_height;
+                            placeholder-text: "/path/to/output-directory";
+                        }
+
+                        HorizontalBox {
+                            spacing: root.action_spacing;
+                            alignment: start;
+                            max-height: self.min-height;
+
+                            Button {
+                                text: "Select Output";
+                                enabled: !root.overwrite_originals && !root.is_running;
+                                min-height: root.control_row_height;
+                                max-height: root.control_row_height;
+                                clicked => {
+                                    root.request_pick_output_directory();
+                                }
+                            }
+                        }
+                    }
+
+                    HorizontalBox {
+                        spacing: root.inline_spacing;
+
+                        VerticalBox {
+                            spacing: root.label_spacing;
+                            Text { text: "File name rule"; }
+                            ComboBox {
+                                model: ["Prefix", "Postfix"];
+                                current-index <=> root.file_name_rule_index;
+                                enabled: !root.overwrite_originals && !root.is_running;
+                                min-height: root.control_row_height;
+                                max-height: root.control_row_height;
+                                selected => {
+                                    if (root.file_name_affix == ""
+                                        || root.file_name_affix == root.default_prefix_affix
+                                        || root.file_name_affix == root.default_postfix_affix) {
+                                        root.file_name_affix = self.current-index == 0
+                                            ? root.default_prefix_affix
+                                            : root.default_postfix_affix;
+                                    }
+                                }
+                            }
+                        }
+
+                        VerticalBox {
+                            spacing: root.label_spacing;
+                            Text { text: "Prefix / postfix text"; }
+                            LineEdit {
+                                text <=> root.file_name_affix;
+                                enabled: !root.overwrite_originals && !root.is_running;
+                                min-height: root.control_row_height;
+                                max-height: root.control_row_height;
+                                placeholder-text: root.file_name_rule_index == 0
+                                    ? root.default_prefix_affix
+                                    : root.default_postfix_affix;
+                            }
+                        }
+                    }
+                }
+            }
+
+            SectionBox {
+                content_padding: root.group_padding;
+                HorizontalBox {
+                    spacing: root.inline_spacing;
+                    alignment: start;
+
+                    VerticalBox {
+                        spacing: root.label_spacing;
+                        Text { text: "Sample rate"; }
+                        ComboBox {
+                            model: ["44100", "48000", "88200", "96000"];
+                            current-index <=> root.sample_rate_index;
+                            enabled: !root.is_running;
+                            min-height: root.control_row_height;
+                            max-height: root.control_row_height;
+                        }
+                    }
+
+                    VerticalBox {
+                        spacing: root.label_spacing;
+                        Text { text: "Output format"; }
+                        ComboBox {
+                            model: ["wav", "aiff"];
+                            current-index <=> root.output_format_index;
+                            enabled: !root.is_running;
+                            min-height: root.control_row_height;
+                            max-height: root.control_row_height;
+                        }
+                    }
+
+                    VerticalBox {
+                        spacing: root.label_spacing;
+                        Text { text: "Bit depth"; }
+                        ComboBox {
+                            model: ["8 bit PCM", "16 bit PCM", "24 bit PCM", "32 bit PCM"];
+                            current-index <=> root.bit_depth_index;
+                            enabled: !root.is_running;
+                            min-height: root.control_row_height;
+                            max-height: root.control_row_height;
+                        }
+                    }
+                }
+            }
+
+            SectionBox {
+                content_padding: root.group_padding;
+                VerticalBox {
+                    spacing: root.block_spacing;
+                    alignment: start;
+
+                    HorizontalBox {
+                        spacing: root.inline_spacing;
+                        alignment: start;
+
+                        Button {
+                            text: root.is_running ? "Running..." : "Run";
+                            primary: true;
+                            enabled: !root.is_running;
+                            min-height: root.control_row_height;
+                            max-height: root.control_row_height;
+                            clicked => {
+                                root.request_run();
+                            }
+                        }
+
+                        Text {
+                            text: root.status_text;
+                        }
+                    }
+
+                    ProgressIndicator {
+                        progress: root.progress_value;
+                    }
+                }
+            }
+
+            SectionBox {
+                content_padding: root.group_padding;
+                fill_height: true;
+                VerticalBox {
+                    spacing: root.block_spacing;
+                    alignment: start;
+
+                    ListView {
+                        min-height: 180px;
+                        preferred-height: 220px;
+
+                        for line in root.log_lines : Rectangle {
+                            width: parent.width;
+                            height: 24px;
+
+                            Text {
+                                text: line;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

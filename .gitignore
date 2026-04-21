@@ -1,0 +1,66 @@
+# Build artifacts
+build/
+out/
+dist/
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+CTestTestfile.cmake
+Testing/
+Makefile
+
+# CMake presets (local only)
+CMakeUserPresets.json
+
+# Ninja
+.ninja_deps
+.ninja_log
+
+# Binaries / libraries
+*.o
+*.obj
+*.lo
+*.la
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.out
+*.app
+
+# Debug / profiling
+*.dSYM/
+*.gcda
+*.gcno
+*.profraw
+*.profdata
+
+# macOS
+.DS_Store
+
+# Editors
+.vscode/
+.idea/
+
+# Logs / temp
+*.log
+*.tmp
+*.swp
+*~
+
+# Optional local env files
+.env
+.env.*
+
+# Generated UI / cache files if added later
+*.autogen
+.cache/
+
+# Keep vendored dependencies unless explicitly excluded
+# third_party/r8brain-free-src/

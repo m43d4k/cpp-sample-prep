@@ -1,0 +1,133 @@
+#include "core/run_conversion.hpp"
+
+#include "audio/audio_conversion.hpp"
+#include "util/path_utils.hpp"
+#include "util/temp_file.hpp"
+
+#include <algorithm>
+#include <filesystem>
+#include <string>
+#include <system_error>
+
+namespace audio_converter::core {
+
+namespace {
+
+void emit_log(const RunCallbacks &callbacks, std::string line)
+{
+    if (callbacks.on_log_line) {
+        callbacks.on_log_line(std::move(line));
+    }
+}
+
+void emit_progress(const RunCallbacks &callbacks, float value, const std::string &status_text)
+{
+    if (callbacks.on_progress) {
+        callbacks.on_progress(value, status_text);
+    }
+}
+
+std::string make_summary(const RunConversionResult &result)
+{
+    return "Finished: " + std::to_string(result.success_count) + " success, "
+        + std::to_string(result.failed_count) + " failed, "
+        + std::to_string(result.skipped_count) + " skipped";
+}
+
+std::string display_path(const std::filesystem::path &path)
+{
+    return util::to_display_string(path);
+}
+
+} // namespace
+
+RunConversionResult run_conversion(const ConversionSettings &settings, const RunCallbacks &callbacks)
+{
+    RunConversionResult result;
+    const auto inputs = util::collect_input_files(settings);
+
+    if (inputs.empty()) {
+        result.status_text = "No eligible files";
+        emit_log(callbacks, "Skipped: no input files were found.");
+        emit_progress(callbacks, 0.0f, result.status_text);
+        return result;
+    }
+
+    result.total_files = static_cast<int>(inputs.size());
+    emit_log(callbacks, "Status: found " + std::to_string(result.total_files) + " input file(s).");
+    emit_progress(callbacks, 0.0f, "Running 0/" + std::to_string(result.total_files));
+
+    for (std::size_t index = 0; index < inputs.size(); ++index) {
+        const auto &input = inputs[index];
+        const auto final_output_path = settings.output_mode == OutputMode::WriteNewFiles
+            ? util::build_output_path(input, settings)
+            : util::replacement_output_path(input, settings.output_format);
+        const auto temp_output_path = util::make_temporary_output_path(final_output_path);
+        util::ScopedTempFile scoped_temp_output(temp_output_path);
+
+        if (settings.output_mode == OutputMode::WriteNewFiles && std::filesystem::exists(final_output_path)) {
+            ++result.skipped_count;
+            emit_log(callbacks, "Skipped: " + display_path(input) + " (output file already exists: "
+                    + display_path(final_output_path) + ")");
+        } else if (
+            settings.output_mode == OutputMode::OverwriteOriginals
+            && final_output_path != input
+            && std::filesystem::exists(final_output_path)) {
+            ++result.skipped_count;
+            emit_log(callbacks, "Skipped: " + display_path(input) + " (replacement path already exists: "
+                    + display_path(final_output_path) + ")");
+        } else {
+            const audio::ProcessFileRequest request {
+                .input_path = input,
+                .output_path = temp_output_path,
+                .output_format = settings.output_format,
+                .sample_rate = settings.sample_rate,
+                .bit_depth = settings.bit_depth,
+            };
+            const auto file_result = audio::convert_audio_file(request);
+
+            if (file_result.status == audio::ProcessStatus::Success) {
+                std::string commit_error;
+                bool committed = false;
+
+                if (settings.output_mode == OutputMode::OverwriteOriginals) {
+                    committed = util::commit_overwrite(input, temp_output_path, final_output_path, commit_error);
+                } else {
+                    committed = util::commit_new_file(temp_output_path, final_output_path, commit_error);
+                }
+
+                if (committed) {
+                    scoped_temp_output.disarm();
+                    ++result.success_count;
+                    emit_log(callbacks, "Success: " + display_path(input) + " -> " + display_path(final_output_path));
+                } else {
+                    ++result.failed_count;
+                    emit_log(callbacks, "Failed: " + display_path(input) + " (" + commit_error + ")");
+                }
+            } else if (file_result.status == audio::ProcessStatus::Skipped) {
+                ++result.skipped_count;
+                emit_log(callbacks, "Skipped: " + display_path(input) + " (" + file_result.detail + ")");
+            } else {
+                ++result.failed_count;
+                emit_log(callbacks, "Failed: " + display_path(input) + " (" + file_result.detail + ")");
+            }
+        }
+
+        const auto completed = static_cast<int>(index + 1);
+        const auto progress_value = static_cast<float>(completed) / static_cast<float>(result.total_files);
+        const auto running_status = completed < result.total_files
+            ? "Running " + std::to_string(completed) + "/" + std::to_string(result.total_files)
+            : make_summary(result);
+        result.progress_value = progress_value;
+        result.status_text = running_status;
+        emit_progress(callbacks, progress_value, running_status);
+    }
+
+    result.status_text = make_summary(result);
+    result.progress_value = 1.0f;
+    emit_log(callbacks, "Status: " + result.status_text);
+    emit_progress(callbacks, result.progress_value, result.status_text);
+    return result;
+}
+
+} // namespace audio_converter::core
