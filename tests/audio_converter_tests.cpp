@@ -165,10 +165,10 @@ void test_directory_conversion()
             updates.push_back(std::move(update));
         },
     });
-    assert(result.total_files == 3);
+    assert(result.total_files == 2);
     assert(result.success_count == 2);
-    assert(result.skipped_count == 1);
-    assert(updates.size() == 3);
+    assert(result.skipped_count == 0);
+    assert(updates.size() == 2);
     int callback_success_count = 0;
     int callback_skipped_count = 0;
     for (const auto &update : updates) {
@@ -179,7 +179,7 @@ void test_directory_conversion()
         }
     }
     assert(callback_success_count == 2);
-    assert(callback_skipped_count == 1);
+    assert(callback_skipped_count == 0);
 
     const auto output_path = output_dir / "converted_song.wav";
     assert(fs::exists(output_path));
@@ -192,6 +192,40 @@ void test_directory_conversion()
     const auto nested_output_info = read_info(nested_output_path);
     assert(nested_output_info.samplerate == 44100);
     assert(nested_output_info.channels == 2);
+}
+
+void test_selected_input_paths_filter_unsupported_extensions()
+{
+    const auto dir = make_temp_dir();
+    const auto input_dir = dir / "input";
+    const auto output_dir = dir / "output";
+    fs::create_directories(input_dir);
+    fs::create_directories(output_dir);
+
+    const auto supported_input = input_dir / "song.wav";
+    const auto unsupported_input = input_dir / "notes.txt";
+    write_wave(supported_input, 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256, 2);
+    std::ofstream(unsupported_input) << "ignore";
+
+    const core::ConversionSettings settings {
+        .input_path = input_dir.string(),
+        .input_mode = core::InputMode::Directory,
+        .selected_input_paths = { unsupported_input, supported_input },
+        .output_mode = core::OutputMode::WriteNewFiles,
+        .output_directory = output_dir.string(),
+        .file_name_rule = core::FileNameRule::Prefix,
+        .file_name_affix = "converted_",
+        .sample_rate = 44100,
+        .output_format = core::OutputFormat::Wav,
+        .bit_depth = core::BitDepth::Pcm16,
+    };
+
+    const auto result = core::run_conversion(settings);
+    assert(result.total_files == 1);
+    assert(result.success_count == 1);
+    assert(result.skipped_count == 0);
+    assert(fs::exists(output_dir / "converted_song.wav"));
+    assert(!fs::exists(output_dir / "converted_notes.wav"));
 }
 
 void test_input_preview()
@@ -215,17 +249,13 @@ void test_input_preview()
         .output_format_index = 0,
     });
     assert(preview.errors.empty());
-    assert(preview.rows.size() == 3);
-    assert(preview.rows[0].input_name == "a-notes.txt");
+    assert(preview.rows.size() == 2);
+    assert(preview.rows[0].input_name == "b-song.wav");
     assert(preview.rows[0].status == "Pending");
-    assert(preview.rows[0].info == "Unavailable");
-    assert(preview.rows[0].output_name == "converted_a-notes.wav");
-    assert(preview.rows[0].output_path.find("output") != std::string::npos);
-    assert(preview.rows[1].input_name == "b-song.wav");
-    assert(preview.rows[1].info.find("2 ch / 48000 Hz / 16 bit PCM") != std::string::npos);
-    assert(preview.rows[2].input_name == "c-deep.wav");
-    assert(preview.rows[2].input_path.find("nested") != std::string::npos);
-    assert(preview.rows[2].output_path.find("output/nested") != std::string::npos);
+    assert(preview.rows[0].info.find("2 ch / 48000 Hz / 16 bit PCM") != std::string::npos);
+    assert(preview.rows[1].input_name == "c-deep.wav");
+    assert(preview.rows[1].input_path.find("nested") != std::string::npos);
+    assert(preview.rows[1].output_path.find("output/nested") != std::string::npos);
 
     const auto single_file_preview = core::preview_input_files({
         .input_path = (input_dir / "b-song.wav").string(),
@@ -236,6 +266,18 @@ void test_input_preview()
     assert(single_file_preview.errors.empty());
     assert(single_file_preview.rows.size() == 1);
     assert(single_file_preview.rows[0].output_name == "b-song.aiff");
+
+    const auto unsupported_file_preview = core::preview_input_files({
+        .input_path = (input_dir / "a-notes.txt").string(),
+        .input_mode_index = 0,
+        .overwrite_originals = false,
+        .output_directory = (dir / "output").string(),
+        .file_name_rule_index = 0,
+        .file_name_affix = "converted_",
+        .output_format_index = 0,
+    });
+    assert(unsupported_file_preview.errors.empty());
+    assert(unsupported_file_preview.rows.empty());
 }
 
 void test_overwrite_extension_change()
@@ -298,6 +340,7 @@ int main()
     test_same_condition_skip();
     test_supported_input_extensions();
     test_directory_conversion();
+    test_selected_input_paths_filter_unsupported_extensions();
     test_input_preview();
     test_overwrite_extension_change();
     test_mono_conversion();

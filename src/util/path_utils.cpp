@@ -61,9 +61,16 @@ std::filesystem::path relative_output_directory(
 std::vector<std::filesystem::path> collect_input_files(const core::ConversionSettings &settings)
 {
     std::vector<std::filesystem::path> files;
+    const auto append_if_supported = [&files](const std::filesystem::path &path) {
+        if (has_supported_input_extension(path)) {
+            files.push_back(path);
+        }
+    };
 
     if (!settings.selected_input_paths.empty()) {
-        files = settings.selected_input_paths;
+        for (const auto &path : settings.selected_input_paths) {
+            append_if_supported(path);
+        }
         std::sort(files.begin(), files.end());
         return files;
     }
@@ -71,7 +78,7 @@ std::vector<std::filesystem::path> collect_input_files(const core::ConversionSet
     const std::filesystem::path input_path(settings.input_path);
 
     if (settings.input_mode == core::InputMode::File) {
-        files.push_back(input_path);
+        append_if_supported(input_path);
         return files;
     }
 
@@ -79,7 +86,7 @@ std::vector<std::filesystem::path> collect_input_files(const core::ConversionSet
              input_path,
              std::filesystem::directory_options::skip_permission_denied)) {
         if (entry.is_regular_file()) {
-            files.push_back(entry.path());
+            append_if_supported(entry.path());
         }
     }
 

@@ -148,7 +148,7 @@ void sync_input_preview(ui::MainWindow &window, TargetFileTableState &table_stat
         window.set_target_files_summary(to_shared_string(
             input_path.empty()
                 ? "Select an input file or folder to preview targets."
-                : "No input files found."));
+                : "No supported input files found."));
     } else {
         sync_target_file_summary(window, table_state);
     }

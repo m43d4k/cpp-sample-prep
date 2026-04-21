@@ -70,7 +70,7 @@ RunConversionResult run_conversion(const ConversionSettings &settings, const Run
 
     if (inputs.empty()) {
         result.status_text = "No eligible files";
-        emit_log(callbacks, "Skipped: no input files were found.");
+        emit_log(callbacks, "Skipped: no supported input files were found.");
         emit_progress(callbacks, 0.0f, result.status_text);
         return result;
     }
