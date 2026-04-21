@@ -34,21 +34,23 @@ fs::path make_temp_dir()
     return dir;
 }
 
-void write_stereo_wave(const fs::path &path, int sample_rate, int format, int frame_count)
+void write_wave(const fs::path &path, int sample_rate, int format, int frame_count, int channels)
 {
     SF_INFO info {};
-    info.channels = 2;
+    info.channels = channels;
     info.samplerate = sample_rate;
     info.format = format;
 
     SNDFILE *file = sf_open(path.c_str(), SFM_WRITE, &info);
     assert(file != nullptr);
 
-    std::vector<double> frames(static_cast<std::size_t>(frame_count) * 2);
+    std::vector<double> frames(static_cast<std::size_t>(frame_count) * static_cast<std::size_t>(channels));
     for (int frame = 0; frame < frame_count; ++frame) {
-        const double sample = (frame % 32) / 32.0;
-        frames[static_cast<std::size_t>(frame) * 2] = sample;
-        frames[static_cast<std::size_t>(frame) * 2 + 1] = -sample;
+        for (int channel = 0; channel < channels; ++channel) {
+            const double sample = ((frame + channel) % 32) / 32.0;
+            frames[static_cast<std::size_t>(frame) * static_cast<std::size_t>(channels)
+                + static_cast<std::size_t>(channel)] = channel % 2 == 0 ? sample : -sample;
+        }
     }
 
     const auto written = sf_writef_double(file, frames.data(), frame_count);
@@ -71,7 +73,7 @@ void test_build_settings()
     const auto input_file = dir / "input.wav";
     const auto output_dir = dir / "out";
     fs::create_directories(output_dir);
-    write_stereo_wave(input_file, 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 128);
+    write_wave(input_file, 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 128, 2);
 
     const auto result = core::build_settings({
         .input_path = input_file.string(),
@@ -107,7 +109,7 @@ void test_same_condition_skip()
 {
     const auto dir = make_temp_dir();
     const auto input_file = dir / "input.wav";
-    write_stereo_wave(input_file, 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 128);
+    write_wave(input_file, 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 128, 2);
 
     const auto result = audio::convert_audio_file({
         .input_path = input_file,
@@ -128,8 +130,8 @@ void test_directory_conversion()
     fs::create_directories(nested_dir);
     fs::create_directories(output_dir);
 
-    write_stereo_wave(input_dir / "song.wav", 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256);
-    write_stereo_wave(nested_dir / "deep.wav", 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256);
+    write_wave(input_dir / "song.wav", 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256, 2);
+    write_wave(nested_dir / "deep.wav", 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256, 2);
     std::ofstream(input_dir / "notes.txt") << "ignore";
 
     const core::ConversionSettings settings {
@@ -186,8 +188,8 @@ void test_input_preview()
     const auto nested_dir = input_dir / "nested";
     fs::create_directories(nested_dir);
 
-    write_stereo_wave(input_dir / "b-song.wav", 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256);
-    write_stereo_wave(nested_dir / "c-deep.wav", 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256);
+    write_wave(input_dir / "b-song.wav", 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256, 2);
+    write_wave(nested_dir / "c-deep.wav", 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256, 2);
     std::ofstream(input_dir / "a-notes.txt") << "ignore";
 
     const auto preview = core::preview_input_files({
@@ -227,7 +229,7 @@ void test_overwrite_extension_change()
 {
     const auto dir = make_temp_dir();
     const auto input_file = dir / "mix.wav";
-    write_stereo_wave(input_file, 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256);
+    write_wave(input_file, 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256, 2);
 
     const core::ConversionSettings settings {
         .input_path = input_file.string(),
@@ -252,6 +254,29 @@ void test_overwrite_extension_change()
     assert((info.format & SF_FORMAT_TYPEMASK) == SF_FORMAT_AIFF);
 }
 
+void test_mono_conversion()
+{
+    const auto dir = make_temp_dir();
+    const auto input_file = dir / "mono.wav";
+    const auto output_file = dir / "mono_converted.aiff";
+    write_wave(input_file, 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256, 1);
+
+    const auto result = audio::convert_audio_file({
+        .input_path = input_file,
+        .output_path = output_file,
+        .output_format = core::OutputFormat::Aiff,
+        .sample_rate = 44100,
+        .bit_depth = core::BitDepth::Pcm16,
+    });
+    assert(result.status == audio::ProcessStatus::Success);
+    assert(fs::exists(output_file));
+
+    const auto info = read_info(output_file);
+    assert((info.format & SF_FORMAT_TYPEMASK) == SF_FORMAT_AIFF);
+    assert(info.channels == 1);
+    assert(info.samplerate == 44100);
+}
+
 } // namespace
 
 int main()
@@ -261,5 +286,6 @@ int main()
     test_directory_conversion();
     test_input_preview();
     test_overwrite_extension_change();
+    test_mono_conversion();
     return 0;
 }

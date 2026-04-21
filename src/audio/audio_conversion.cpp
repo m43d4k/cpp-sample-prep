@@ -18,7 +18,8 @@ namespace audio_converter::audio {
 
 namespace {
 
-constexpr int kStereoChannels = 2;
+constexpr int kMinSupportedChannels = 1;
+constexpr int kMaxSupportedChannels = 2;
 constexpr int kResampleChunkFrames = 4096;
 
 struct SndfileCloser {
@@ -31,6 +32,11 @@ struct SndfileCloser {
 };
 
 using SndfileHandle = std::unique_ptr<SNDFILE, SndfileCloser>;
+
+bool is_supported_channel_count(int channels)
+{
+    return channels >= kMinSupportedChannels && channels <= kMaxSupportedChannels;
+}
 
 int major_format_for(core::OutputFormat output_format)
 {
@@ -107,21 +113,25 @@ SndfileHandle open_output(const std::filesystem::path &path, const SF_INFO &info
 bool write_interleaved_frames(
     SNDFILE *output_file,
     const std::vector<double *> &channel_pointers,
+    int channel_count,
     sf_count_t frame_count,
     std::vector<double> &interleaved_output)
 {
-    interleaved_output.resize(static_cast<std::size_t>(frame_count) * kStereoChannels);
+    interleaved_output.resize(static_cast<std::size_t>(frame_count) * static_cast<std::size_t>(channel_count));
     for (sf_count_t frame = 0; frame < frame_count; ++frame) {
-        interleaved_output[static_cast<std::size_t>(frame) * kStereoChannels] = channel_pointers[0][frame];
-        interleaved_output[static_cast<std::size_t>(frame) * kStereoChannels + 1] = channel_pointers[1][frame];
+        for (int channel = 0; channel < channel_count; ++channel) {
+            interleaved_output[static_cast<std::size_t>(frame) * static_cast<std::size_t>(channel_count)
+                + static_cast<std::size_t>(channel)] = channel_pointers[static_cast<std::size_t>(channel)][frame];
+        }
     }
 
     return sf_writef_double(output_file, interleaved_output.data(), frame_count) == frame_count;
 }
 
-bool copy_without_resampling(SNDFILE *input_file, SNDFILE *output_file)
+bool copy_without_resampling(SNDFILE *input_file, SNDFILE *output_file, int channel_count)
 {
-    std::vector<double> interleaved_buffer(kResampleChunkFrames * kStereoChannels);
+    std::vector<double> interleaved_buffer(
+        kResampleChunkFrames * static_cast<std::size_t>(channel_count));
 
     while (true) {
         const auto read_frames = sf_readf_double(input_file, interleaved_buffer.data(), kResampleChunkFrames);
@@ -136,12 +146,15 @@ bool copy_without_resampling(SNDFILE *input_file, SNDFILE *output_file)
 
 bool copy_with_resampling(SNDFILE *input_file, const SF_INFO &input_info, SNDFILE *output_file, int output_sample_rate)
 {
-    std::vector<double> interleaved_input(kResampleChunkFrames * kStereoChannels);
-    std::vector<std::vector<double>> channel_input(kStereoChannels, std::vector<double>(kResampleChunkFrames));
+    const int channel_count = input_info.channels;
+    std::vector<double> interleaved_input(kResampleChunkFrames * static_cast<std::size_t>(channel_count));
+    std::vector<std::vector<double>> channel_input(
+        static_cast<std::size_t>(channel_count),
+        std::vector<double>(kResampleChunkFrames));
     std::vector<std::unique_ptr<r8b::CDSPResampler24>> resamplers;
-    resamplers.reserve(kStereoChannels);
+    resamplers.reserve(static_cast<std::size_t>(channel_count));
 
-    for (int channel = 0; channel < kStereoChannels; ++channel) {
+    for (int channel = 0; channel < channel_count; ++channel) {
         resamplers.push_back(std::make_unique<r8b::CDSPResampler24>(
             static_cast<double>(input_info.samplerate),
             static_cast<double>(output_sample_rate),
@@ -149,8 +162,9 @@ bool copy_with_resampling(SNDFILE *input_file, const SF_INFO &input_info, SNDFIL
     }
 
     const auto max_output_frames = static_cast<sf_count_t>(resamplers.front()->getMaxOutLen(kResampleChunkFrames));
-    std::vector<double *> output_channels(kStereoChannels, nullptr);
-    std::vector<double> interleaved_output(static_cast<std::size_t>(max_output_frames) * kStereoChannels);
+    std::vector<double *> output_channels(static_cast<std::size_t>(channel_count), nullptr);
+    std::vector<double> interleaved_output(
+        static_cast<std::size_t>(max_output_frames) * static_cast<std::size_t>(channel_count));
     const auto expected_output_frames = static_cast<sf_count_t>(
         (static_cast<long double>(input_info.frames) * static_cast<long double>(output_sample_rate))
         / static_cast<long double>(input_info.samplerate));
@@ -168,9 +182,10 @@ bool copy_with_resampling(SNDFILE *input_file, const SF_INFO &input_info, SNDFIL
             } else {
                 frames_to_process = read_frames;
                 for (sf_count_t frame = 0; frame < read_frames; ++frame) {
-                    for (int channel = 0; channel < kStereoChannels; ++channel) {
+                    for (int channel = 0; channel < channel_count; ++channel) {
                         channel_input[channel][static_cast<std::size_t>(frame)] =
-                            interleaved_input[static_cast<std::size_t>(frame) * kStereoChannels + channel];
+                            interleaved_input[static_cast<std::size_t>(frame) * static_cast<std::size_t>(channel_count)
+                                + static_cast<std::size_t>(channel)];
                     }
                 }
             }
@@ -178,13 +193,13 @@ bool copy_with_resampling(SNDFILE *input_file, const SF_INFO &input_info, SNDFIL
 
         if (eof_reached) {
             frames_to_process = kResampleChunkFrames;
-            for (int channel = 0; channel < kStereoChannels; ++channel) {
+            for (int channel = 0; channel < channel_count; ++channel) {
                 std::fill(channel_input[channel].begin(), channel_input[channel].end(), 0.0);
             }
         }
 
         int output_frames = -1;
-        for (int channel = 0; channel < kStereoChannels; ++channel) {
+        for (int channel = 0; channel < channel_count; ++channel) {
             double *channel_output = nullptr;
             const int channel_output_frames = resamplers[channel]->process(
                 channel_input[channel].data(),
@@ -206,7 +221,12 @@ bool copy_with_resampling(SNDFILE *input_file, const SF_INFO &input_info, SNDFIL
 
         const auto remaining_frames = expected_output_frames - written_frames;
         const auto frames_to_write = std::min<sf_count_t>(remaining_frames, output_frames);
-        if (!write_interleaved_frames(output_file, output_channels, frames_to_write, interleaved_output)) {
+        if (!write_interleaved_frames(
+                output_file,
+                output_channels,
+                channel_count,
+                frames_to_write,
+                interleaved_output)) {
             return false;
         }
         written_frames += frames_to_write;
@@ -233,8 +253,8 @@ ProcessFileResult convert_audio_file(const ProcessFileRequest &request)
     if (!output_format_from_sndfile_format(input_info.format).has_value()) {
         return make_skipped("unsupported input format");
     }
-    if (input_info.channels != kStereoChannels) {
-        return make_skipped("input is not stereo");
+    if (!is_supported_channel_count(input_info.channels)) {
+        return make_skipped("only mono and stereo input are supported");
     }
     if (is_same_conditions(input_info, request)) {
         return make_skipped("same output conditions");
@@ -256,7 +276,7 @@ ProcessFileResult convert_audio_file(const ProcessFileRequest &request)
     }
 
     const bool ok = input_info.samplerate == request.sample_rate
-        ? copy_without_resampling(input_file.get(), output_file.get())
+        ? copy_without_resampling(input_file.get(), output_file.get(), input_info.channels)
         : copy_with_resampling(input_file.get(), input_info, output_file.get(), request.sample_rate);
     if (!ok) {
         return make_failed("audio conversion failed");
