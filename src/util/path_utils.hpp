@@ -13,6 +13,9 @@ bool has_supported_input_extension(const std::filesystem::path &path);
 std::filesystem::path build_output_path(
     const std::filesystem::path &input_path,
     const core::ConversionSettings &settings);
+std::filesystem::path output_parent_directory(
+    const std::filesystem::path &input_path,
+    const core::ConversionSettings &settings);
 std::filesystem::path replacement_output_path(
     const std::filesystem::path &input_path,
     core::OutputFormat output_format);

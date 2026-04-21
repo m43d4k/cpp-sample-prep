@@ -39,6 +39,21 @@ std::string display_path(const std::filesystem::path &path)
     return util::to_display_string(path);
 }
 
+bool ensure_output_parent_directory(const std::filesystem::path &path, std::string &error_message)
+{
+    if (path.empty()) {
+        return true;
+    }
+
+    std::error_code error_code;
+    std::filesystem::create_directories(path, error_code);
+    if (error_code) {
+        error_message = "unable to create output directory: " + error_code.message();
+        return false;
+    }
+    return true;
+}
+
 } // namespace
 
 RunConversionResult run_conversion(const ConversionSettings &settings, const RunCallbacks &callbacks)
@@ -62,8 +77,6 @@ RunConversionResult run_conversion(const ConversionSettings &settings, const Run
         const auto final_output_path = settings.output_mode == OutputMode::WriteNewFiles
             ? util::build_output_path(input, settings)
             : util::replacement_output_path(input, settings.output_format);
-        const auto temp_output_path = util::make_temporary_output_path(final_output_path);
-        util::ScopedTempFile scoped_temp_output(temp_output_path);
 
         if (settings.output_mode == OutputMode::WriteNewFiles && std::filesystem::exists(final_output_path)) {
             ++result.skipped_count;
@@ -77,6 +90,23 @@ RunConversionResult run_conversion(const ConversionSettings &settings, const Run
             emit_log(callbacks, "Skipped: " + display_path(input) + " (replacement path already exists: "
                     + display_path(final_output_path) + ")");
         } else {
+            std::string output_directory_error;
+            if (!ensure_output_parent_directory(final_output_path.parent_path(), output_directory_error)) {
+                ++result.failed_count;
+                emit_log(callbacks, "Failed: " + display_path(input) + " (" + output_directory_error + ")");
+                const auto completed = static_cast<int>(index + 1);
+                const auto progress_value = static_cast<float>(completed) / static_cast<float>(result.total_files);
+                const auto running_status = completed < result.total_files
+                    ? "Running " + std::to_string(completed) + "/" + std::to_string(result.total_files)
+                    : make_summary(result);
+                result.progress_value = progress_value;
+                result.status_text = running_status;
+                emit_progress(callbacks, progress_value, running_status);
+                continue;
+            }
+
+            const auto temp_output_path = util::make_temporary_output_path(final_output_path);
+            util::ScopedTempFile scoped_temp_output(temp_output_path);
             const audio::ProcessFileRequest request {
                 .input_path = input,
                 .output_path = temp_output_path,
