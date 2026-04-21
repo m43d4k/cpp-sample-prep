@@ -156,7 +156,7 @@ export component MainWindow inherits Window {
                 }
 
                 Text {
-                    text: "Single-window WAV / AIFF converter for mono and stereo files";
+                    text: "Single-window audio converter for mono and stereo files";
                     color: #666666;
                 }
             }
@@ -195,7 +195,7 @@ export component MainWindow inherits Window {
                             enabled: !root.is_running;
                             min-height: root.control_row_height;
                             max-height: root.control_row_height;
-                            placeholder-text: root.input_mode_index == 0 ? "/path/to/input.wav" : "/path/to/input-folder";
+                            placeholder-text: root.input_mode_index == 0 ? "/path/to/input-file" : "/path/to/input-folder";
                             edited(text) => {
                                 root.request_refresh_input_preview();
                             }

@@ -81,13 +81,16 @@ NativeDialogResult pick_path_with_osascript(const std::string &script)
 NativeDialogResult pick_input_file()
 {
 #if defined(__APPLE__)
-    return pick_path_with_osascript("POSIX path of (choose file with prompt \"Select input WAV or AIFF file\")");
+    return pick_path_with_osascript("POSIX path of (choose file with prompt \"Select input audio file\")");
 #elif defined(__linux__)
     if (executable_exists("zenity")) {
-        return run_dialog_command("zenity --file-selection --title='Select input WAV or AIFF file' 2>/dev/null");
+        return run_dialog_command(
+            "zenity --file-selection --title='Select input audio file' "
+            "--file-filter='Audio files | *.wav *.wave *.aif *.aiff *.flac *.mp3 *.ogg *.oga *.caf' 2>/dev/null");
     }
     if (executable_exists("kdialog")) {
-        return run_dialog_command("kdialog --getopenfilename . '*.wav *.wave *.aif *.aiff' 2>/dev/null");
+        return run_dialog_command(
+            "kdialog --getopenfilename . '*.wav *.wave *.aif *.aiff *.flac *.mp3 *.ogg *.oga *.caf' 2>/dev/null");
     }
     return { .accepted = false, .path = {}, .error_message = "install zenity or kdialog to use the native file picker on Linux" };
 #else

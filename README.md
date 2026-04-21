@@ -1,10 +1,10 @@
 # cpp-audio-converter
 
-GUI audio converter for WAV / AIFF, sample rate, and bit depth changes.
+GUI audio converter for common audio inputs with WAV / AIFF output.
 
 ## 概要
 `cpp-audio-converter` は、macOS / Linux 向けの GUI オーディオコンバーターです。  
-WAV / AIFF の書き出し、サンプリングレート変換、bit depth 変換を行います。
+WAV / AIFF / FLAC / MP3 / OGG / CAF の読み込みと、WAV / AIFF の書き出し、サンプリングレート変換、bit depth 変換を行います。
 
 変換エンジンには `r8brain-free-src` を使用し、音声ファイルの読み書きには `libsndfile` を使用します。  
 GUI は `Slint`、ビルドは `CMake + Ninja` を前提としています。
@@ -41,7 +41,7 @@ GUI は `Slint`、ビルドは `CMake + Ninja` を前提としています。
 ## v1 の仕様
 - 変換対象はモノラル / ステレオファイル
 - 多チャンネルは対象外
-- 入力形式は WAV / AIFF
+- 入力形式は WAV / AIFF / FLAC / MP3 / OGG / CAF
 - フォルダ入力は配下を再帰的に対象とする
 - 非対応形式、多チャンネル入力、破損ファイルはスキップしてログに記録
 - 上書き保存は一時ファイル経由で安全に行う

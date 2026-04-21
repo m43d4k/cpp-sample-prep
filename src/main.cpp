@@ -317,7 +317,7 @@ int main()
     window->set_target_file_rows(target_file_table.model);
 
     log_store.push("Status: select an input file or folder.");
-    log_store.push("Status: supported input formats are WAV / AIFF.");
+    log_store.push("Status: supported input formats are WAV / AIFF / FLAC / MP3 / OGG / CAF.");
     sync_log_view(*window, log_store);
 
     window->on_request_pick_input_file([weak_window = slint::ComponentWeakHandle(window), &log_store, &target_file_table] {

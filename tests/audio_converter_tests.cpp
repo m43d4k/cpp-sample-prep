@@ -18,6 +18,7 @@
 namespace fs = std::filesystem;
 namespace core = audio_converter::core;
 namespace audio = audio_converter::audio;
+namespace util = audio_converter::util;
 
 namespace {
 
@@ -119,6 +120,18 @@ void test_same_condition_skip()
         .bit_depth = core::BitDepth::Pcm16,
     });
     assert(result.status == audio::ProcessStatus::Skipped);
+}
+
+void test_supported_input_extensions()
+{
+    assert(util::has_supported_input_extension("input.wav"));
+    assert(util::has_supported_input_extension("input.aiff"));
+    assert(util::has_supported_input_extension("input.flac"));
+    assert(util::has_supported_input_extension("input.mp3"));
+    assert(util::has_supported_input_extension("input.ogg"));
+    assert(util::has_supported_input_extension("input.caf"));
+    assert(util::has_supported_input_extension("INPUT.OGA"));
+    assert(!util::has_supported_input_extension("input.txt"));
 }
 
 void test_directory_conversion()
@@ -283,6 +296,7 @@ int main()
 {
     test_build_settings();
     test_same_condition_skip();
+    test_supported_input_extensions();
     test_directory_conversion();
     test_input_preview();
     test_overwrite_extension_change();

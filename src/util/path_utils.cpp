@@ -8,11 +8,16 @@ namespace audio_converter::util {
 
 namespace {
 
-constexpr std::array<const char *, 4> kSupportedExtensions {
+constexpr std::array<const char *, 9> kSupportedExtensions {
     ".wav",
     ".wave",
     ".aif",
     ".aiff",
+    ".flac",
+    ".mp3",
+    ".ogg",
+    ".oga",
+    ".caf",
 };
 
 std::string lowercase(std::string value)
