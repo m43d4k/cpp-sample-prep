@@ -273,6 +273,17 @@ export component MainWindow inherits Window {
                                 root.set_all_target_file_selection(false);
                             }
                         }
+
+                        Button {
+                            text: "Clear";
+                            enabled: !root.is_running && root.input_path != "";
+                            min-height: root.control_row_height;
+                            max-height: root.control_row_height;
+                            clicked => {
+                                root.input_path = "";
+                                root.request_refresh_input_preview();
+                            }
+                        }
                     }
 
                     Rectangle {
