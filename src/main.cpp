@@ -8,10 +8,13 @@
 
 #include <slint.h>
 
+#include <algorithm>
 #include <atomic>
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 
 namespace core = audio_converter::core;
@@ -47,6 +50,8 @@ slint::SharedString to_shared_string(const std::string &value)
 ui::TargetFileRow to_ui_target_file_row(const core::TargetFileRow &row)
 {
     return {
+        .selected = row.selected,
+        .source_path = to_shared_string(row.source_path),
         .input = to_shared_string(row.input_name),
         .input_path = to_shared_string(row.input_path),
         .status = to_shared_string(row.status),
@@ -99,10 +104,40 @@ void sync_log_view(ui::MainWindow &window, const core::LogStore &log_store)
     window.set_log_lines(to_log_model(log_store));
 }
 
+std::size_t selected_target_file_count(const TargetFileTableState &table_state)
+{
+    std::size_t count = 0;
+    for (const auto &row : table_state.rows) {
+        if (row.selected) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+void sync_target_file_summary(ui::MainWindow &window, const TargetFileTableState &table_state)
+{
+    window.set_target_files_summary(to_shared_string(
+        std::to_string(table_state.rows.size()) + " file(s) listed, "
+        + std::to_string(selected_target_file_count(table_state)) + " selected."));
+}
+
 void sync_input_preview(ui::MainWindow &window, TargetFileTableState &table_state)
 {
+    std::unordered_map<std::string, bool> selected_rows;
+    selected_rows.reserve(table_state.rows.size());
+    for (const auto &row : table_state.rows) {
+        selected_rows.emplace(row.source_path, row.selected);
+    }
+
     const auto preview = core::preview_input_files(read_input_preview_request(window));
     table_state.rows = preview.rows;
+    for (auto &row : table_state.rows) {
+        if (const auto it = selected_rows.find(row.source_path); it != selected_rows.end()) {
+            row.selected = it->second;
+            row.status = row.selected ? "Pending" : "";
+        }
+    }
     table_state.model = to_target_file_model(table_state.rows);
     window.set_target_file_rows(table_state.model);
 
@@ -115,8 +150,7 @@ void sync_input_preview(ui::MainWindow &window, TargetFileTableState &table_stat
                 ? "Select an input file or folder to preview targets."
                 : "No input files found."));
     } else {
-        window.set_target_files_summary(to_shared_string(
-            std::to_string(preview.rows.size()) + " file(s) listed from the current input."));
+        sync_target_file_summary(window, table_state);
     }
 }
 
@@ -144,11 +178,20 @@ void update_target_file_status(
     TargetFileTableState &table_state,
     const core::RunFileUpdate &update)
 {
-    if (update.index >= table_state.rows.size() || !table_state.model) {
+    if (!table_state.model) {
         return;
     }
 
-    auto &row = table_state.rows[update.index];
+    const auto input_path = util::to_display_string(update.input_path);
+    const auto row_it = std::find_if(table_state.rows.begin(), table_state.rows.end(), [&](const auto &candidate) {
+        return candidate.source_path == input_path;
+    });
+    if (row_it == table_state.rows.end()) {
+        return;
+    }
+
+    const auto row_index = static_cast<std::size_t>(std::distance(table_state.rows.begin(), row_it));
+    auto &row = *row_it;
     row.status = target_file_status_text(update);
     row.output_name = update.output_path.empty() ? row.output_name : update.output_path.filename().string();
     row.output_path = update.output_path.empty()
@@ -156,8 +199,78 @@ void update_target_file_status(
         : (update.output_path.parent_path().empty()
             ? "."
             : util::to_display_string(update.output_path.parent_path()));
-    table_state.model->set_row_data(update.index, to_ui_target_file_row(row));
+    table_state.model->set_row_data(row_index, to_ui_target_file_row(row));
     window.set_target_file_rows(table_state.model);
+}
+
+void set_target_file_selection(
+    ui::MainWindow &window,
+    TargetFileTableState &table_state,
+    const std::string &source_path,
+    bool selected)
+{
+    if (!table_state.model) {
+        return;
+    }
+
+    const auto row_it = std::find_if(table_state.rows.begin(), table_state.rows.end(), [&](const auto &candidate) {
+        return candidate.source_path == source_path;
+    });
+    if (row_it == table_state.rows.end()) {
+        return;
+    }
+
+    row_it->selected = selected;
+    row_it->status = selected ? "Pending" : "";
+    const auto row_index = static_cast<std::size_t>(std::distance(table_state.rows.begin(), row_it));
+    table_state.model->set_row_data(row_index, to_ui_target_file_row(*row_it));
+    window.set_target_file_rows(table_state.model);
+    sync_target_file_summary(window, table_state);
+}
+
+void set_all_target_file_selection(ui::MainWindow &window, TargetFileTableState &table_state, bool selected)
+{
+    if (!table_state.model) {
+        return;
+    }
+
+    for (std::size_t index = 0; index < table_state.rows.size(); ++index) {
+        auto &row = table_state.rows[index];
+        row.selected = selected;
+        row.status = selected ? "Pending" : "";
+        table_state.model->set_row_data(index, to_ui_target_file_row(row));
+    }
+
+    window.set_target_file_rows(table_state.model);
+    sync_target_file_summary(window, table_state);
+}
+
+std::vector<std::filesystem::path> selected_input_paths(const TargetFileTableState &table_state)
+{
+    std::vector<std::filesystem::path> paths;
+    paths.reserve(selected_target_file_count(table_state));
+    for (const auto &row : table_state.rows) {
+        if (row.selected) {
+            paths.emplace_back(row.source_path);
+        }
+    }
+    return paths;
+}
+
+void prepare_target_file_rows_for_run(ui::MainWindow &window, TargetFileTableState &table_state)
+{
+    if (!table_state.model) {
+        return;
+    }
+
+    for (std::size_t index = 0; index < table_state.rows.size(); ++index) {
+        auto &row = table_state.rows[index];
+        row.status = row.selected ? "Pending" : "";
+        table_state.model->set_row_data(index, to_ui_target_file_row(row));
+    }
+
+    window.set_target_file_rows(table_state.model);
+    sync_target_file_summary(window, table_state);
 }
 
 template <typename Setter>
@@ -261,6 +374,29 @@ int main()
         sync_input_preview(*window, target_file_table);
     });
 
+    window->on_set_target_file_selection([weak_window = slint::ComponentWeakHandle(window), &target_file_table](
+                                             const slint::SharedString &source_path,
+                                             bool selected) {
+        const auto maybe_window = weak_window.lock();
+        if (!maybe_window.has_value()) {
+            return;
+        }
+
+        auto window = *maybe_window;
+        set_target_file_selection(*window, target_file_table, std::string(source_path), selected);
+    });
+
+    window->on_set_all_target_file_selection(
+        [weak_window = slint::ComponentWeakHandle(window), &target_file_table](bool selected) {
+            const auto maybe_window = weak_window.lock();
+            if (!maybe_window.has_value()) {
+                return;
+            }
+
+            auto window = *maybe_window;
+            set_all_target_file_selection(*window, target_file_table, selected);
+        });
+
     window->on_request_run([weak_window = slint::ComponentWeakHandle(window), &log_store, &target_file_table, &is_running, &worker_thread] {
         if (is_running.exchange(true)) {
             return;
@@ -288,15 +424,28 @@ int main()
             return;
         }
 
+        sync_input_preview(*window, target_file_table);
+        const auto selected_paths = selected_input_paths(target_file_table);
+        if (selected_paths.empty()) {
+            log_store.push("Failed: select at least one target file.");
+            window->set_status_text("No files selected");
+            window->set_progress_value(0.0f);
+            window->set_is_running(false);
+            sync_log_view(*window, log_store);
+            is_running = false;
+            return;
+        }
+
+        auto settings = *build_result.settings;
+        settings.selected_input_paths = std::move(selected_paths);
         window->set_is_running(true);
         window->set_status_text("Running");
         window->set_progress_value(0.0f);
-        sync_input_preview(*window, target_file_table);
+        prepare_target_file_rows_for_run(*window, target_file_table);
         log_store.push("Status: validation passed.");
         sync_log_view(*window, log_store);
 
-        const auto settings = *build_result.settings;
-        worker_thread = std::jthread([weak_window, &log_store, &target_file_table, &is_running, settings] {
+        worker_thread = std::jthread([weak_window, &log_store, &target_file_table, &is_running, settings = std::move(settings)] {
             const auto result = core::run_conversion(settings, {
                 .on_log_line = [weak_window, &log_store](std::string line) {
                     slint::invoke_from_event_loop([weak_window, &log_store, line = std::move(line)]() mutable {

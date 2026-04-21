@@ -1,6 +1,7 @@
 #pragma once
 
 #include <optional>
+#include <filesystem>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -63,6 +64,7 @@ struct UiSettingsInput {
 struct ConversionSettings {
     std::string input_path;
     InputMode input_mode { InputMode::File };
+    std::vector<std::filesystem::path> selected_input_paths;
     OutputMode output_mode { OutputMode::WriteNewFiles };
     std::string output_directory;
     FileNameRule file_name_rule { FileNameRule::Prefix };

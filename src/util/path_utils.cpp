@@ -56,6 +56,13 @@ std::filesystem::path relative_output_directory(
 std::vector<std::filesystem::path> collect_input_files(const core::ConversionSettings &settings)
 {
     std::vector<std::filesystem::path> files;
+
+    if (!settings.selected_input_paths.empty()) {
+        files = settings.selected_input_paths;
+        std::sort(files.begin(), files.end());
+        return files;
+    }
+
     const std::filesystem::path input_path(settings.input_path);
 
     if (settings.input_mode == core::InputMode::File) {

@@ -6,12 +6,14 @@
 namespace audio_converter::core {
 
 struct TargetFileRow {
+    std::string source_path;
     std::string input_name;
     std::string input_path;
     std::string status;
     std::string info;
     std::string output_name;
     std::string output_path;
+    bool selected { true };
 };
 
 struct InputPreviewRequest {

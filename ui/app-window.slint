@@ -12,6 +12,8 @@ import {
 } from "std-widgets.slint";
 
 export struct TargetFileRow {
+    selected: bool,
+    source_path: string,
     input: string,
     input_path: string,
     status: string,
@@ -130,6 +132,8 @@ export component MainWindow inherits Window {
     callback request_pick_input_file();
     callback request_pick_input_directory();
     callback request_pick_output_directory();
+    callback set_target_file_selection(string, bool);
+    callback set_all_target_file_selection(bool);
 
     ScrollView {
         width: 100%;
@@ -238,8 +242,36 @@ export component MainWindow inherits Window {
 
                         Text { text: "Target files"; }
                         Text {
-                            text: root.target_files_summary;
+                            text: root.target_file_rows.length > 0
+                                ? root.target_files_summary + " Click a row to include or exclude it."
+                                : root.target_files_summary;
                             color: #666666;
+                        }
+                    }
+
+                    HorizontalBox {
+                        spacing: root.action_spacing;
+                        alignment: start;
+                        max-height: self.min-height;
+
+                        Button {
+                            text: "Select All";
+                            enabled: !root.is_running;
+                            min-height: root.control_row_height;
+                            max-height: root.control_row_height;
+                            clicked => {
+                                root.set_all_target_file_selection(true);
+                            }
+                        }
+
+                        Button {
+                            text: "Deselect All";
+                            enabled: !root.is_running;
+                            min-height: root.control_row_height;
+                            max-height: root.control_row_height;
+                            clicked => {
+                                root.set_all_target_file_selection(false);
+                            }
                         }
                     }
 
@@ -305,8 +337,8 @@ export component MainWindow inherits Window {
                             width: parent.width;
                             height: root.table_row_height;
                             border-width: 1px;
-                            border-color: Palette.border;
-                            background: Palette.alternate-background;
+                            border-color: row.selected ? Palette.selection-background : Palette.border;
+                            background: row.selected ? Palette.selection-background : Palette.alternate-background;
 
                             row-layout := HorizontalLayout {
                                 x: 0;
@@ -319,31 +351,44 @@ export component MainWindow inherits Window {
                                     text_value: row.input;
                                     width: root.column_input_width;
                                     height: parent.height;
+                                    text_color: row.selected ? Palette.selection-foreground : Palette.foreground;
                                 }
                                 TableCell {
                                     text_value: row.input_path;
                                     width: root.column_input_path_width;
                                     height: parent.height;
+                                    text_color: row.selected ? Palette.selection-foreground : Palette.foreground;
                                 }
                                 TableCell {
                                     text_value: row.status;
                                     width: root.column_status_width;
                                     height: parent.height;
+                                    text_color: row.selected ? Palette.selection-foreground : Palette.foreground;
                                 }
                                 TableCell {
                                     text_value: row.info;
                                     width: root.column_info_width;
                                     height: parent.height;
+                                    text_color: row.selected ? Palette.selection-foreground : Palette.foreground;
                                 }
                                 TableCell {
                                     text_value: row.output;
                                     width: root.column_output_width;
                                     height: parent.height;
+                                    text_color: row.selected ? Palette.selection-foreground : Palette.foreground;
                                 }
                                 TableCell {
                                     text_value: row.output_path;
                                     width: max(root.column_output_path_min_width, parent.width - root.table_fixed_width);
                                     height: parent.height;
+                                    text_color: row.selected ? Palette.selection-foreground : Palette.foreground;
+                                }
+                            }
+
+                            TouchArea {
+                                enabled: !root.is_running;
+                                clicked => {
+                                    root.set_target_file_selection(row.source_path, !row.selected);
                                 }
                             }
                         }
@@ -502,7 +547,7 @@ export component MainWindow inherits Window {
                         alignment: start;
 
                         Button {
-                            text: root.is_running ? "Running..." : "Run";
+                            text: root.is_running ? "Running..." : "Run Selected";
                             primary: true;
                             enabled: !root.is_running;
                             min-height: root.control_row_height;

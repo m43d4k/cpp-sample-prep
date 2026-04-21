@@ -196,12 +196,14 @@ InputPreviewResult preview_input_files(const InputPreviewRequest &request)
         for (const auto &file : files) {
             const auto audio_info = audio::read_audio_file_info(file);
             result.rows.push_back({
+                .source_path = util::to_display_string(file),
                 .input_name = file.filename().string(),
                 .input_path = display_directory(file.parent_path()),
                 .status = "Pending",
                 .info = format_info_label(audio_info),
                 .output_name = resolve_output_name(file, request, input_mode),
                 .output_path = resolve_output_path(file, request, input_mode),
+                .selected = true,
             });
         }
     } catch (const std::filesystem::filesystem_error &) {
