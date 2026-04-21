@@ -11,6 +11,50 @@ import {
     VerticalBox
 } from "std-widgets.slint";
 
+export struct TargetFileRow {
+    input: string,
+    input_path: string,
+    status: string,
+    info: string,
+    output: string,
+    output_path: string,
+}
+
+component TableCell inherits Rectangle {
+    in property <string> text_value;
+    in property <brush> text_color: Palette.foreground;
+    in property <bool> is_header: false;
+
+    background: transparent;
+    clip: true;
+
+    HorizontalLayout {
+        x: 0;
+        y: 0;
+        width: parent.width;
+        height: parent.height;
+        padding-left: 8px;
+        padding-right: 8px;
+        padding-top: 4px;
+        padding-bottom: 4px;
+        spacing: 0px;
+
+        Rectangle {
+            background: transparent;
+
+            Text {
+                width: 100%;
+                height: 100%;
+                text: root.text_value;
+                color: root.text_color;
+                overflow: elide;
+                vertical-alignment: center;
+                font-weight: root.is_header ? 600 : 400;
+            }
+        }
+    }
+}
+
 component SectionBox inherits VerticalBox {
     in property <length> content_padding: 6px;
     in property <bool> fill_height: false;
@@ -52,6 +96,18 @@ export component MainWindow inherits Window {
     private property <length> inline_spacing: 8px;
     private property <length> action_spacing: 6px;
     private property <length> control_row_height: 22px;
+    private property <length> table_row_height: 34px;
+    private property <length> column_input_width: 110px;
+    private property <length> column_input_path_width: 180px;
+    private property <length> column_status_width: 180px;
+    private property <length> column_info_width: 140px;
+    private property <length> column_output_width: 110px;
+    private property <length> table_fixed_width: root.column_input_width
+        + root.column_input_path_width
+        + root.column_status_width
+        + root.column_info_width
+        + root.column_output_width;
+    private property <length> column_output_path_min_width: 140px;
 
     in-out property <string> input_path;
     in-out property <int> input_mode_index;
@@ -65,9 +121,12 @@ export component MainWindow inherits Window {
     in-out property <float> progress_value;
     in-out property <string> status_text;
     in-out property <bool> is_running;
+    in-out property <string> target_files_summary;
+    in property <[TargetFileRow]> target_file_rows;
     in property <[string]> log_lines;
 
     callback request_run();
+    callback request_refresh_input_preview();
     callback request_pick_input_file();
     callback request_pick_input_directory();
     callback request_pick_output_directory();
@@ -116,6 +175,9 @@ export component MainWindow inherits Window {
                             enabled: !root.is_running;
                             min-height: root.control_row_height;
                             max-height: root.control_row_height;
+                            selected => {
+                                root.request_refresh_input_preview();
+                            }
                         }
                     }
 
@@ -130,6 +192,9 @@ export component MainWindow inherits Window {
                             min-height: root.control_row_height;
                             max-height: root.control_row_height;
                             placeholder-text: root.input_mode_index == 0 ? "/path/to/input.wav" : "/path/to/input-folder";
+                            edited(text) => {
+                                root.request_refresh_input_preview();
+                            }
                         }
 
                         HorizontalBox {
@@ -167,10 +232,138 @@ export component MainWindow inherits Window {
                     spacing: root.block_spacing;
                     alignment: start;
 
+                    VerticalBox {
+                        spacing: root.label_spacing;
+                        alignment: start;
+
+                        Text { text: "Target files"; }
+                        Text {
+                            text: root.target_files_summary;
+                            color: #666666;
+                        }
+                    }
+
+                    Rectangle {
+                        width: 100%;
+                        height: root.table_row_height;
+                        background: Palette.background;
+                        border-width: 1px;
+                        border-color: Palette.border;
+
+                        HorizontalLayout {
+                            x: 0;
+                            y: 0;
+                            width: parent.width;
+                            height: parent.height;
+                            spacing: 0px;
+
+                            TableCell {
+                                text_value: "Input";
+                                width: root.column_input_width;
+                                height: parent.height;
+                                is_header: true;
+                            }
+                            TableCell {
+                                text_value: "Input path";
+                                width: root.column_input_path_width;
+                                height: parent.height;
+                                is_header: true;
+                            }
+                            TableCell {
+                                text_value: "Status";
+                                width: root.column_status_width;
+                                height: parent.height;
+                                is_header: true;
+                            }
+                            TableCell {
+                                text_value: "Info";
+                                width: root.column_info_width;
+                                height: parent.height;
+                                is_header: true;
+                            }
+                            TableCell {
+                                text_value: "Output";
+                                width: root.column_output_width;
+                                height: parent.height;
+                                is_header: true;
+                            }
+                            TableCell {
+                                text_value: "Output path";
+                                width: max(root.column_output_path_min_width, parent.width - root.table_fixed_width);
+                                height: parent.height;
+                                is_header: true;
+                            }
+                        }
+                    }
+
+                    ListView {
+                        width: 100%;
+                        min-height: 152px;
+                        preferred-height: 192px;
+
+                        for row in root.target_file_rows : Rectangle {
+                            width: parent.width;
+                            height: root.table_row_height;
+                            border-width: 1px;
+                            border-color: Palette.border;
+                            background: Palette.alternate-background;
+
+                            row-layout := HorizontalLayout {
+                                x: 0;
+                                y: 0;
+                                width: parent.width;
+                                height: parent.height;
+                                spacing: 0px;
+
+                                TableCell {
+                                    text_value: row.input;
+                                    width: root.column_input_width;
+                                    height: parent.height;
+                                }
+                                TableCell {
+                                    text_value: row.input_path;
+                                    width: root.column_input_path_width;
+                                    height: parent.height;
+                                }
+                                TableCell {
+                                    text_value: row.status;
+                                    width: root.column_status_width;
+                                    height: parent.height;
+                                }
+                                TableCell {
+                                    text_value: row.info;
+                                    width: root.column_info_width;
+                                    height: parent.height;
+                                }
+                                TableCell {
+                                    text_value: row.output;
+                                    width: root.column_output_width;
+                                    height: parent.height;
+                                }
+                                TableCell {
+                                    text_value: row.output_path;
+                                    width: max(root.column_output_path_min_width, parent.width - root.table_fixed_width);
+                                    height: parent.height;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            SectionBox {
+                content_padding: root.group_padding;
+                VerticalBox {
+                    spacing: root.block_spacing;
+                    alignment: start;
+
                     CheckBox {
                         text: "Overwrite original files";
                         checked <=> root.overwrite_originals;
                         enabled: !root.is_running;
+                        toggled => {
+                            root.request_refresh_input_preview();
+                        }
                     }
 
                     VerticalBox {
@@ -184,6 +377,9 @@ export component MainWindow inherits Window {
                             min-height: root.control_row_height;
                             max-height: root.control_row_height;
                             placeholder-text: "/path/to/output-directory";
+                            edited(text) => {
+                                root.request_refresh_input_preview();
+                            }
                         }
 
                         HorizontalBox {
@@ -223,6 +419,7 @@ export component MainWindow inherits Window {
                                             ? root.default_prefix_affix
                                             : root.default_postfix_affix;
                                     }
+                                    root.request_refresh_input_preview();
                                 }
                             }
                         }
@@ -238,6 +435,9 @@ export component MainWindow inherits Window {
                                 placeholder-text: root.file_name_rule_index == 0
                                     ? root.default_prefix_affix
                                     : root.default_postfix_affix;
+                                edited(text) => {
+                                    root.request_refresh_input_preview();
+                                }
                             }
                         }
                     }
@@ -271,6 +471,9 @@ export component MainWindow inherits Window {
                             enabled: !root.is_running;
                             min-height: root.control_row_height;
                             max-height: root.control_row_height;
+                            selected => {
+                                root.request_refresh_input_preview();
+                            }
                         }
                     }
 
@@ -326,6 +529,8 @@ export component MainWindow inherits Window {
                 VerticalBox {
                     spacing: root.block_spacing;
                     alignment: start;
+
+                    Text { text: "Log"; }
 
                     ListView {
                         min-height: 180px;

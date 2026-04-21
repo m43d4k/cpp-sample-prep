@@ -1,5 +1,6 @@
 #include "audio/audio_conversion.hpp"
 
+#include "audio/audio_file_info.hpp"
 #include "util/path_utils.hpp"
 
 #include <sndfile.h>
@@ -31,35 +32,6 @@ struct SndfileCloser {
 
 using SndfileHandle = std::unique_ptr<SNDFILE, SndfileCloser>;
 
-std::optional<core::OutputFormat> output_format_from_sf_info(const SF_INFO &info)
-{
-    switch (info.format & SF_FORMAT_TYPEMASK) {
-    case SF_FORMAT_WAV:
-        return core::OutputFormat::Wav;
-    case SF_FORMAT_AIFF:
-        return core::OutputFormat::Aiff;
-    default:
-        return std::nullopt;
-    }
-}
-
-std::optional<core::BitDepth> bit_depth_from_sf_info(const SF_INFO &info)
-{
-    switch (info.format & SF_FORMAT_SUBMASK) {
-    case SF_FORMAT_PCM_S8:
-    case SF_FORMAT_PCM_U8:
-        return core::BitDepth::Pcm8;
-    case SF_FORMAT_PCM_16:
-        return core::BitDepth::Pcm16;
-    case SF_FORMAT_PCM_24:
-        return core::BitDepth::Pcm24;
-    case SF_FORMAT_PCM_32:
-        return core::BitDepth::Pcm32;
-    default:
-        return std::nullopt;
-    }
-}
-
 int major_format_for(core::OutputFormat output_format)
 {
     switch (output_format) {
@@ -88,8 +60,8 @@ int subtype_for(core::OutputFormat output_format, core::BitDepth bit_depth)
 
 bool is_same_conditions(const SF_INFO &input_info, const ProcessFileRequest &request)
 {
-    const auto input_format = output_format_from_sf_info(input_info);
-    const auto input_bit_depth = bit_depth_from_sf_info(input_info);
+    const auto input_format = output_format_from_sndfile_format(input_info.format);
+    const auto input_bit_depth = bit_depth_from_sndfile_format(input_info.format);
     return input_format.has_value()
         && input_bit_depth.has_value()
         && *input_format == request.output_format
@@ -258,7 +230,7 @@ ProcessFileResult convert_audio_file(const ProcessFileRequest &request)
         return open_error;
     }
 
-    if (!output_format_from_sf_info(input_info).has_value()) {
+    if (!output_format_from_sndfile_format(input_info.format).has_value()) {
         return make_skipped("unsupported input format");
     }
     if (input_info.channels != kStereoChannels) {

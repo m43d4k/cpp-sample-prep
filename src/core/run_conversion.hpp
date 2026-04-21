@@ -2,14 +2,31 @@
 
 #include "core/conversion_settings.hpp"
 
+#include <cstddef>
+#include <filesystem>
 #include <functional>
 #include <string>
 
 namespace audio_converter::core {
 
+enum class RunFileStatus {
+    Success,
+    Skipped,
+    Failed,
+};
+
+struct RunFileUpdate {
+    std::size_t index { 0 };
+    std::filesystem::path input_path;
+    std::filesystem::path output_path;
+    RunFileStatus status { RunFileStatus::Skipped };
+    std::string detail;
+};
+
 struct RunCallbacks {
     std::function<void(std::string)> on_log_line;
     std::function<void(float, std::string)> on_progress;
+    std::function<void(RunFileUpdate)> on_file_complete;
 };
 
 struct RunConversionResult {

@@ -22,10 +22,12 @@ pkg_check_modules(SNDFILE REQUIRED IMPORTED_TARGET sndfile)
 include(CTest)
 
 add_library(audio_converter_lib
+    src/audio/audio_file_info.cpp
+    src/audio/audio_conversion.cpp
     src/core/conversion_settings.cpp
+    src/core/input_preview.cpp
     src/core/log_store.cpp
     src/core/run_conversion.cpp
-    src/audio/audio_conversion.cpp
     src/util/native_file_dialog.cpp
     src/util/path_utils.cpp
     src/util/temp_file.cpp

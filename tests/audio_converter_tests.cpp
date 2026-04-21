@@ -1,5 +1,6 @@
 #include "audio/audio_conversion.hpp"
 #include "core/conversion_settings.hpp"
+#include "core/input_preview.hpp"
 #include "core/run_conversion.hpp"
 #include "util/path_utils.hpp"
 
@@ -122,11 +123,13 @@ void test_directory_conversion()
 {
     const auto dir = make_temp_dir();
     const auto input_dir = dir / "input";
+    const auto nested_dir = input_dir / "nested";
     const auto output_dir = dir / "output";
-    fs::create_directories(input_dir);
+    fs::create_directories(nested_dir);
     fs::create_directories(output_dir);
 
     write_stereo_wave(input_dir / "song.wav", 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256);
+    write_stereo_wave(nested_dir / "deep.wav", 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256);
     std::ofstream(input_dir / "notes.txt") << "ignore";
 
     const core::ConversionSettings settings {
@@ -141,16 +144,83 @@ void test_directory_conversion()
         .bit_depth = core::BitDepth::Pcm16,
     };
 
-    const auto result = core::run_conversion(settings);
-    assert(result.total_files == 2);
-    assert(result.success_count == 1);
+    std::vector<core::RunFileUpdate> updates;
+    const auto result = core::run_conversion(settings, {
+        .on_file_complete = [&updates](core::RunFileUpdate update) {
+            updates.push_back(std::move(update));
+        },
+    });
+    assert(result.total_files == 3);
+    assert(result.success_count == 2);
     assert(result.skipped_count == 1);
+    assert(updates.size() == 3);
+    int callback_success_count = 0;
+    int callback_skipped_count = 0;
+    for (const auto &update : updates) {
+        if (update.status == core::RunFileStatus::Success) {
+            ++callback_success_count;
+        } else if (update.status == core::RunFileStatus::Skipped) {
+            ++callback_skipped_count;
+        }
+    }
+    assert(callback_success_count == 2);
+    assert(callback_skipped_count == 1);
 
     const auto output_path = output_dir / "converted_song.wav";
     assert(fs::exists(output_path));
-    const auto info = read_info(output_path);
-    assert(info.samplerate == 44100);
-    assert(info.channels == 2);
+    const auto output_info = read_info(output_path);
+    assert(output_info.samplerate == 44100);
+    assert(output_info.channels == 2);
+
+    const auto nested_output_path = output_dir / "nested" / "converted_deep.wav";
+    assert(fs::exists(nested_output_path));
+    const auto nested_output_info = read_info(nested_output_path);
+    assert(nested_output_info.samplerate == 44100);
+    assert(nested_output_info.channels == 2);
+}
+
+void test_input_preview()
+{
+    const auto dir = make_temp_dir();
+    const auto input_dir = dir / "input";
+    const auto nested_dir = input_dir / "nested";
+    fs::create_directories(nested_dir);
+
+    write_stereo_wave(input_dir / "b-song.wav", 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256);
+    write_stereo_wave(nested_dir / "c-deep.wav", 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256);
+    std::ofstream(input_dir / "a-notes.txt") << "ignore";
+
+    const auto preview = core::preview_input_files({
+        .input_path = input_dir.string(),
+        .input_mode_index = 1,
+        .overwrite_originals = false,
+        .output_directory = (dir / "output").string(),
+        .file_name_rule_index = 0,
+        .file_name_affix = "converted_",
+        .output_format_index = 0,
+    });
+    assert(preview.errors.empty());
+    assert(preview.rows.size() == 3);
+    assert(preview.rows[0].input_name == "a-notes.txt");
+    assert(preview.rows[0].status == "Pending");
+    assert(preview.rows[0].info == "Unavailable");
+    assert(preview.rows[0].output_name == "converted_a-notes.wav");
+    assert(preview.rows[0].output_path.find("output") != std::string::npos);
+    assert(preview.rows[1].input_name == "b-song.wav");
+    assert(preview.rows[1].info.find("2 ch / 48000 Hz / 16 bit PCM") != std::string::npos);
+    assert(preview.rows[2].input_name == "c-deep.wav");
+    assert(preview.rows[2].input_path.find("nested") != std::string::npos);
+    assert(preview.rows[2].output_path.find("output/nested") != std::string::npos);
+
+    const auto single_file_preview = core::preview_input_files({
+        .input_path = (input_dir / "b-song.wav").string(),
+        .input_mode_index = 0,
+        .overwrite_originals = true,
+        .output_format_index = 1,
+    });
+    assert(single_file_preview.errors.empty());
+    assert(single_file_preview.rows.size() == 1);
+    assert(single_file_preview.rows[0].output_name == "b-song.aiff");
 }
 
 void test_overwrite_extension_change()
@@ -189,6 +259,7 @@ int main()
     test_build_settings();
     test_same_condition_skip();
     test_directory_conversion();
+    test_input_preview();
     test_overwrite_extension_change();
     return 0;
 }
