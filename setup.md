@@ -89,18 +89,16 @@ Homebrew を使う前提。
 - `.app` の build 自体は `build/SamplePrep.app`
 
 ### 6. `.app` の stage
+配布前の動作確認に使える、依存ライブラリを同梱した `.app` を生成する。
+
     cmake --build --preset local-llvm --target stage_macos_app
 
 出力先:
 - `build/dist/stage/SamplePrep.app`
 
-### 7. 配布用 ZIP
-    cmake --build --preset local-llvm --target package_macos_zip
+### 7. 配布用フォルダ一式を生成
+`build/dist/release/` に `SamplePrep.app`、`README.txt`、配布用 ZIP をまとめて出力する。
 
-出力先:
-- `build/dist/SamplePrep-0.1.0-macOS-arm64.zip`
-
-### 8. release ディレクトリの完成形
     cmake --build --preset local-llvm --target package_macos_release
 
 出力先:
@@ -110,16 +108,18 @@ Homebrew を使う前提。
 
 補足:
 - ZIP は無圧縮で生成する
-- ZIP の中には `.app` と `README.txt` を含める
+- `build/dist/release/` に配布用ファイル一式をまとめて出力する
+- `build/dist/release/SamplePrep-0.1.0-macOS-arm64.zip` の中には `.app` と `README.txt` を含める
 
 補足:
-- `stage_macos_app` と `package_macos_zip` は `fixup_bundle` を使って `libsndfile` と従属 dylib をアプリ内へコピーする
+- `stage_macos_app` は `fixup_bundle` を使って `libsndfile` と従属 dylib をアプリ内へコピーする
+- `package_macos_release` は `stage_macos_app` を前提にしてリリース用ファイルをまとめる
 - bundle identifier を変える場合は configure 時に `-DSAMPLEPREP_BUNDLE_IDENTIFIER=...` を付ける
 
-### 9. 未署名配布時の前提
+### 8. 未署名配布時の前提
 現時点の標準フローは未署名の `.app` / ZIP を配布する形とする。
 
-- Apple Silicon 向けの配布物は `stage_macos_app` または `package_macos_zip` で生成する
+- Apple Silicon 向けの配布物は `package_macos_release` で生成する
 - 初回起動時に macOS にブロックされた場合は `System Settings` → `Privacy & Security` → `Open Anyway` を案内する
 - これは Apple の公式案内に沿った運用とする
 
@@ -258,7 +258,7 @@ r8brain-free-src はリポジトリ内に同梱する。
 - `libsndfile` が解決される
 - `.app` が生成される
 - `stage_macos_app` が通る
-- `package_macos_zip` が通る
+- `package_macos_release` が通る
 
 ---
 

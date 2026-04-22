@@ -177,14 +177,6 @@ if(APPLE)
         VERBATIM
     )
 
-    add_custom_target(package_macos_zip
-        COMMAND "${CMAKE_COMMAND}" -DSAMPLEPREP_CREATE_ZIP=ON
-            -P "${SAMPLEPREP_GENERATED_DIR}/StageMacOSBundle.cmake"
-        DEPENDS sampleprep
-        COMMENT "Packaging a self-contained macOS app bundle as a ZIP archive"
-        VERBATIM
-    )
-
     add_custom_target(package_macos_release
         COMMAND "${CMAKE_COMMAND}" -P "${SAMPLEPREP_GENERATED_DIR}/PrepareMacOSRelease.cmake"
         DEPENDS stage_macos_app
@@ -201,5 +193,3 @@ if(BUILD_TESTING)
     target_link_libraries(sampleprep_tests PRIVATE sampleprep_lib)
     add_test(NAME sampleprep_tests COMMAND sampleprep_tests)
 endif()
-
-include(CPack)

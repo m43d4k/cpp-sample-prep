@@ -3,13 +3,16 @@
 GUI audio converter for common audio inputs with WAV / AIFF output.
 
 ## 概要
-`SamplePrep` は、macOS 向けの GUI オーディオコンバーターです。  
-WAV / AIFF / FLAC / MP3 / OGG / CAF の読み込みと、WAV / AIFF の書き出し、サンプリングレート変換、bit depth 変換を行います。
+`SamplePrep` は、macOS 向けの GUI オーディオコンバーター。  
+DAW で使うサンプルのサンプリングレートや bit depth をそろえることを主な目的とし、`r8brain-free-src` を用いたサンプリングレート変換と、各種音声ファイルの一括変換を行う。
 
-Linux 対応はひとまず見送っています。
+WAV / AIFF / FLAC / MP3 / OGG / CAF を読み込み、WAV / AIFF へ書き出せる。  
+あわせて、サンプリングレート変換と bit depth 変換に対応する。
 
-変換エンジンには `r8brain-free-src` を使用し、音声ファイルの読み書きには `libsndfile` を使用します。  
-GUI は `Slint`、ビルドは `CMake + Ninja` を前提としています。
+Linux 対応はひとまず見送る。
+
+変換エンジンには `r8brain-free-src`、音声ファイルの読み書きには `libsndfile` を使用する。  
+GUI は `Slint`、ビルドは `CMake + Ninja` を前提とする。
 
 ## 対応OS
 - macOS
@@ -87,7 +90,7 @@ Sample rate converter designed by Aleksey Vaneev of Voxengo.
     └── build/
 
 ## セットアップ
-詳細は `setup.md` を参照してください。
+詳細は `setup.md` を参照。
 
 ### macOS
 - Command Line Tools
@@ -103,21 +106,20 @@ Sample rate converter designed by Aleksey Vaneev of Voxengo.
     cmake --build --preset local-llvm
 
 ビルド後、ローカル起動用の `.app` は `build/SamplePrep.app` に生成される。
-ターミナルからは `./build/cpp_audio_converter` で起動できる。
+ターミナルからは `./build/cpp_audio_converter` で起動する。
 
-### self-contained `.app` の stage
+### 依存ライブラリ込みの `.app` を生成
+配布前の動作確認に使える、依存ライブラリを同梱した `.app` を生成する。  
+`package_macos_release` はこの `.app` をもとにリリース用ファイルを作る。
+
     cmake --build --preset local-llvm --target stage_macos_app
 
 出力先:
 - `build/dist/stage/SamplePrep.app`
 
-### 配布用 ZIP の生成
-    cmake --build --preset local-llvm --target package_macos_zip
+### 配布用フォルダ一式を生成
+`build/dist/release/` に `SamplePrep.app`、`README.txt`、配布用 ZIP をまとめて出力する。  
 
-出力先:
-- `build/dist/SamplePrep-0.1.0-macOS-arm64.zip`
-
-### release ディレクトリの生成
     cmake --build --preset local-llvm --target package_macos_release
 
 出力先:
@@ -129,6 +131,7 @@ Sample rate converter designed by Aleksey Vaneev of Voxengo.
 - stage / package 時に `libsndfile` とその依存ライブラリを `.app` 内へ同梱する
 - bundle identifier の既定値は `com.example.sampleprep`
 - 必要なら configure 時に `-DSAMPLEPREP_BUNDLE_IDENTIFIER=com.your-domain.sampleprep` を指定して上書きできる
+- `build/dist/release/SamplePrep-0.1.0-macOS-arm64.zip` の中には `.app` と `README.txt` を含める
 
 ## 配布方針
 現時点の標準配布方針は以下とする。
@@ -152,7 +155,7 @@ Apple の案内:
 - https://support.apple.com/en-us/HT202491
 
 ### Optional: codesign / notarization
-Developer ID 配布を行う場合は補助スクリプトを使える。
+Developer ID 配布を行う場合は補助スクリプトを使う。
 
     CODESIGN_IDENTITY="Developer ID Application: Example" \
     NOTARYTOOL_PROFILE="notary-profile" \
@@ -178,4 +181,4 @@ Developer ID 配布を行う場合は補助スクリプトを使える。
 
 ## ライセンス
 ライセンスは未定。
-依存ライブラリのライセンス条件は各プロジェクトに従います。
+依存ライブラリのライセンス条件は各プロジェクトに従う。
