@@ -23,6 +23,7 @@ Linux 対応はひとまず見送る。
 - サンプリングレートの選択
 - 出力フォーマットの選択
 - bit depth の選択
+- 使用 CPU コア数の選択
 - 実行ボタン
 - ログ表示
 - 進捗表示
@@ -71,6 +72,25 @@ Linux 対応はひとまず見送る。
 - 16 bit PCM
 - 24 bit PCM
 - 32 bit PCM
+
+### 5.4 使用 CPU コア数
+- All
+- 1
+- 2
+- 3
+- 4
+- 6
+- 8
+- 10
+
+#### 挙動
+- デフォルトは All とする
+- All の場合は `std::thread::hardware_concurrency()` を取得する
+- 実際の worker 数は `min(取得したコア数, 入力ファイル数)` とする
+- `std::thread::hardware_concurrency()` が 0 を返した場合は 1 とみなす
+- 並列化はファイル単位で行う
+- 各ジョブは独立した input handle / output handle / resampler を持つ
+- 1 ファイル内のチャンネル分割並列化は行わない
 
 ---
 

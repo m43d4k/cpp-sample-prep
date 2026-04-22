@@ -61,6 +61,7 @@ struct UiSettingsInput {
     int sample_rate_index { 0 };
     int output_format_index { 0 };
     int bit_depth_index { 0 };
+    int cpu_core_count_index { 0 };
 };
 
 struct ConversionSettings {
@@ -74,6 +75,7 @@ struct ConversionSettings {
     int sample_rate { 44100 };
     OutputFormat output_format { OutputFormat::Wav };
     BitDepth bit_depth { BitDepth::Pcm16 };
+    unsigned int cpu_worker_count { 0 };
 };
 
 struct BuildSettingsResult {
@@ -96,6 +98,7 @@ std::optional<FileNameRule> file_name_rule_from_index(int index);
 std::optional<int> sample_rate_from_index(int index);
 std::optional<OutputFormat> output_format_from_index(int index);
 std::optional<BitDepth> bit_depth_from_index(int index);
+std::optional<unsigned int> cpu_worker_count_from_index(int index);
 std::string resolve_file_name_affix(
     FileNameRule value,
     std::string_view requested_affix,

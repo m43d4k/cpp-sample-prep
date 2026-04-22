@@ -16,6 +16,16 @@ constexpr std::array<BitDepth, 4> kBitDepths {
     BitDepth::Pcm24,
     BitDepth::Pcm32,
 };
+constexpr std::array<unsigned int, 8> kCpuWorkerCounts {
+    0,
+    1,
+    2,
+    3,
+    4,
+    6,
+    8,
+    10,
+};
 constexpr std::array<FileNameRule, 2> kFileNameRules {
     FileNameRule::Prefix,
     FileNameRule::Postfix,
@@ -132,6 +142,11 @@ std::optional<BitDepth> bit_depth_from_index(int index)
     return value_from_index(kBitDepths, index);
 }
 
+std::optional<unsigned int> cpu_worker_count_from_index(int index)
+{
+    return value_from_index(kCpuWorkerCounts, index);
+}
+
 std::string resolve_file_name_affix(
     FileNameRule value,
     std::string_view requested_affix,
@@ -227,6 +242,13 @@ BuildSettingsResult build_settings(const UiSettingsInput &input)
         result.errors.emplace_back("Bit depth selection is invalid.");
     } else {
         settings.bit_depth = *bit_depth;
+    }
+
+    const auto cpu_worker_count = cpu_worker_count_from_index(input.cpu_core_count_index);
+    if (!cpu_worker_count.has_value()) {
+        result.errors.emplace_back("CPU core selection is invalid.");
+    } else {
+        settings.cpu_worker_count = *cpu_worker_count;
     }
 
     if (settings.output_mode == OutputMode::WriteNewFiles) {

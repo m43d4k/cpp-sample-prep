@@ -32,6 +32,7 @@ struct RunCallbacks {
 struct RunConversionResult {
     std::string status_text;
     float progress_value { 0.0f };
+    int resolved_worker_count { 0 };
     int total_files { 0 };
     int success_count { 0 };
     int failed_count { 0 };

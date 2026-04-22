@@ -15,6 +15,7 @@
 - Slint
   - 設定画面
   - 出力先選択
+  - CPU worker 数の選択
   - ログ表示
   - 進捗表示
 - libsndfile
@@ -48,6 +49,7 @@
 - core/
   - 設定検証
   - 変換ジョブ管理
+  - ファイル単位の並列実行制御
   - ログ管理
 - audio/
   - libsndfile と r8brain の橋渡し
@@ -68,3 +70,10 @@
 - 音声変換コアは C++
 - r8brain-free-src を必ず内蔵
 - 当面は macOS を正式対象として進める
+
+## 並列実行方針
+- UI スレッドと変換実行スレッドは分離する
+- 変換の並列化はファイル単位で行う
+- 1 ファイル内のチャンネル分割並列化は行わない
+- 各ジョブは独立した input handle / output handle / resampler を持つ
+- `Use CPU cores = All` の場合は `std::thread::hardware_concurrency()` を使用し、実 worker 数は入力ファイル数を上限とする

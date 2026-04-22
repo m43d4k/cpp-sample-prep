@@ -5,9 +5,13 @@
 #include "util/temp_file.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <filesystem>
+#include <mutex>
 #include <string>
 #include <system_error>
+#include <thread>
+#include <vector>
 
 namespace audio_converter::core {
 
@@ -50,6 +54,18 @@ std::string make_summary(const RunConversionResult &result)
     return "Finished: " + std::to_string(result.success_count) + " success, "
         + std::to_string(result.failed_count) + " failed, "
         + std::to_string(result.skipped_count) + " skipped";
+}
+
+unsigned int resolve_worker_count(unsigned int requested_worker_count, std::size_t input_count)
+{
+    if (input_count == 0) {
+        return 0;
+    }
+
+    const unsigned int detected = requested_worker_count == 0
+        ? std::max(1u, std::thread::hardware_concurrency())
+        : requested_worker_count;
+    return std::min<unsigned int>(detected, static_cast<unsigned int>(input_count));
 }
 
 std::string display_path(const std::filesystem::path &path)
@@ -222,19 +238,40 @@ RunConversionResult run_conversion(const ConversionSettings &settings, const Run
     result.total_files = static_cast<int>(inputs.size());
     emit_progress(callbacks, 0.0f, "Running 0/" + std::to_string(result.total_files));
 
-    for (std::size_t index = 0; index < inputs.size(); ++index) {
-        const auto item = make_run_item(index, inputs[index], settings);
-        const auto preflight_outcome = preflight_run_item(item, settings);
-        const auto outcome = preflight_outcome.has_value()
-            ? *preflight_outcome
-            : process_run_item(item, settings);
-        record_file_outcome(result, callbacks, item, outcome);
-        update_progress(result, callbacks, static_cast<int>(index + 1));
+    const auto worker_count = resolve_worker_count(settings.cpu_worker_count, inputs.size());
+    result.resolved_worker_count = static_cast<int>(worker_count);
+    std::atomic_size_t next_index { 0 };
+    std::mutex result_mutex;
+    std::vector<std::jthread> workers;
+    workers.reserve(worker_count);
+
+    for (unsigned int worker_index = 0; worker_index < worker_count; ++worker_index) {
+        workers.emplace_back([&settings, &callbacks, &inputs, &next_index, &result_mutex, &result] {
+            while (true) {
+                const auto index = next_index.fetch_add(1);
+                if (index >= inputs.size()) {
+                    return;
+                }
+
+                const auto item = make_run_item(index, inputs[index], settings);
+                const auto preflight_outcome = preflight_run_item(item, settings);
+                const auto outcome = preflight_outcome.has_value()
+                    ? *preflight_outcome
+                    : process_run_item(item, settings);
+
+                std::lock_guard<std::mutex> lock(result_mutex);
+                record_file_outcome(result, callbacks, item, outcome);
+                update_progress(result, callbacks, result.success_count + result.failed_count + result.skipped_count);
+            }
+        });
+    }
+
+    for (auto &worker : workers) {
+        worker.join();
     }
 
     result.status_text = make_summary(result);
     result.progress_value = 1.0f;
-    emit_progress(callbacks, result.progress_value, result.status_text);
     return result;
 }
 

@@ -94,6 +94,7 @@ core::UiSettingsInput read_ui_settings(const ui::MainWindow &window, const Input
         .sample_rate_index = window.get_sample_rate_index(),
         .output_format_index = window.get_output_format_index(),
         .bit_depth_index = window.get_bit_depth_index(),
+        .cpu_core_count_index = window.get_cpu_core_count_index(),
     };
 }
 
@@ -400,6 +401,7 @@ int main()
     window->set_sample_rate_index(0);
     window->set_output_format_index(0);
     window->set_bit_depth_index(1);
+    window->set_cpu_core_count_index(0);
     window->set_is_running(false);
     window->set_status_text("Select input files or a folder");
     window->set_progress_value(0.0f);

@@ -129,6 +129,7 @@ export component MainWindow inherits Window {
     in-out property <int> sample_rate_index;
     in-out property <int> output_format_index;
     in-out property <int> bit_depth_index;
+    in-out property <int> cpu_core_count_index;
     in-out property <float> progress_value;
     in-out property <string> status_text;
     in-out property <bool> is_running;
@@ -593,6 +594,18 @@ export component MainWindow inherits Window {
                         ComboBox {
                             model: ["8 bit PCM", "16 bit PCM", "24 bit PCM", "32 bit PCM"];
                             current-index <=> root.bit_depth_index;
+                            enabled: !root.is_running;
+                            min-height: root.control_row_height;
+                            max-height: root.control_row_height;
+                        }
+                    }
+
+                    VerticalBox {
+                        spacing: root.label_spacing;
+                        Text { text: "Use CPU cores"; }
+                        ComboBox {
+                            model: ["All", "1", "2", "3", "4", "6", "8", "10"];
+                            current-index <=> root.cpu_core_count_index;
                             enabled: !root.is_running;
                             min-height: root.control_row_height;
                             max-height: root.control_row_height;

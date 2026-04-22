@@ -6,6 +6,7 @@
 
 #include <sndfile.h>
 
+#include <algorithm>
 #include <cassert>
 #include <chrono>
 #include <cstdint>
@@ -114,6 +115,7 @@ void test_build_settings()
     assert(result.settings.has_value());
     assert(result.settings->file_name_affix == core::kDefaultPrefixAffix);
     assert(result.settings->output_format == core::OutputFormat::Wav);
+    assert(result.settings->cpu_worker_count == 0);
     assert(core::default_file_name_affix(core::FileNameRule::Prefix) == core::kDefaultPrefixAffix);
     assert(core::default_file_name_affix(core::FileNameRule::Postfix) == core::kDefaultPostfixAffix);
 
@@ -132,6 +134,20 @@ void test_build_settings()
     assert(explicit_files.settings->input_mode == core::InputMode::File);
     assert(explicit_files.settings->selected_input_paths.size() == 2);
 
+    const auto limited_workers = core::build_settings({
+        .input_path = input_file.string(),
+        .overwrite_originals = false,
+        .output_directory = output_dir.string(),
+        .file_name_rule_index = 0,
+        .sample_rate_index = 1,
+        .output_format_index = 0,
+        .bit_depth_index = 1,
+        .cpu_core_count_index = 4,
+    });
+    assert(limited_workers.errors.empty());
+    assert(limited_workers.settings.has_value());
+    assert(limited_workers.settings->cpu_worker_count == 4);
+
     const auto invalid = core::build_settings({
         .input_path = input_file.string(),
         .overwrite_originals = false,
@@ -141,6 +157,7 @@ void test_build_settings()
         .sample_rate_index = 1,
         .output_format_index = 0,
         .bit_depth_index = 1,
+        .cpu_core_count_index = 99,
     });
     assert(!invalid.errors.empty());
 
@@ -232,6 +249,7 @@ void test_directory_conversion()
         .sample_rate = 44100,
         .output_format = core::OutputFormat::Wav,
         .bit_depth = core::BitDepth::Pcm16,
+        .cpu_worker_count = 1,
     };
 
     std::vector<core::RunFileUpdate> updates;
@@ -240,6 +258,7 @@ void test_directory_conversion()
             updates.push_back(std::move(update));
         },
     });
+    assert(result.resolved_worker_count == 1);
     assert(result.total_files == 2);
     assert(result.success_count == 2);
     assert(result.skipped_count == 0);
@@ -293,9 +312,11 @@ void test_selected_input_paths_filter_unsupported_extensions()
         .sample_rate = 44100,
         .output_format = core::OutputFormat::Wav,
         .bit_depth = core::BitDepth::Pcm16,
+        .cpu_worker_count = 1,
     };
 
     const auto result = core::run_conversion(settings);
+    assert(result.resolved_worker_count == 1);
     assert(result.total_files == 1);
     assert(result.success_count == 1);
     assert(result.skipped_count == 0);
@@ -410,6 +431,7 @@ void test_overwrite_extension_change()
     };
 
     const auto result = core::run_conversion(settings);
+    assert(result.resolved_worker_count == 1);
     assert(result.total_files == 1);
     assert(result.success_count == 1);
     assert(!fs::exists(input_file));
@@ -469,6 +491,7 @@ void test_supported_input_format_conversion()
     };
 
     const auto result = core::run_conversion(settings);
+    assert(result.resolved_worker_count >= 1);
     assert(result.total_files == 4);
     assert(result.success_count == 4);
     assert(result.failed_count == 0);
@@ -513,6 +536,7 @@ void test_duplicate_selected_input_paths_emit_stable_indices()
         .sample_rate = 44100,
         .output_format = core::OutputFormat::Wav,
         .bit_depth = core::BitDepth::Pcm16,
+        .cpu_worker_count = 1,
     };
 
     std::vector<std::size_t> indices;
@@ -524,13 +548,129 @@ void test_duplicate_selected_input_paths_emit_stable_indices()
         },
     });
 
+    assert(result.resolved_worker_count == 1);
     assert(result.total_files == 2);
     assert(result.success_count == 1);
     assert(result.skipped_count == 1);
+    assert(indices.size() == 2);
+    std::sort(indices.begin(), indices.end());
     assert(indices == std::vector<std::size_t>({ 0, 1 }));
     assert(statuses.size() == 2);
-    assert(statuses[0] == core::RunFileStatus::Success);
-    assert(statuses[1] == core::RunFileStatus::Skipped);
+    const auto success_count = static_cast<int>(std::count(statuses.begin(), statuses.end(), core::RunFileStatus::Success));
+    const auto skipped_count = static_cast<int>(std::count(statuses.begin(), statuses.end(), core::RunFileStatus::Skipped));
+    assert(success_count == 1);
+    assert(skipped_count == 1);
+}
+
+void test_all_cpu_cores_resolve_to_single_worker_for_single_input()
+{
+    const auto dir = make_temp_dir();
+    const auto input_file = dir / "input.wav";
+    const auto output_dir = dir / "output";
+    fs::create_directories(output_dir);
+
+    write_audio_file(input_file, 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256, 2);
+
+    const core::ConversionSettings settings {
+        .input_path = input_file.string(),
+        .input_mode = core::InputMode::File,
+        .output_mode = core::OutputMode::WriteNewFiles,
+        .output_directory = output_dir.string(),
+        .file_name_rule = core::FileNameRule::Prefix,
+        .file_name_affix = "converted_",
+        .sample_rate = 44100,
+        .output_format = core::OutputFormat::Wav,
+        .bit_depth = core::BitDepth::Pcm16,
+        .cpu_worker_count = 0,
+    };
+
+    const auto result = core::run_conversion(settings);
+    assert(result.resolved_worker_count == 1);
+    assert(result.total_files == 1);
+    assert(result.success_count == 1);
+}
+
+void test_requested_worker_count_is_capped_by_input_count()
+{
+    const auto dir = make_temp_dir();
+    const auto input_dir = dir / "input";
+    const auto output_dir = dir / "output";
+    fs::create_directories(input_dir);
+    fs::create_directories(output_dir);
+
+    write_audio_file(input_dir / "one.wav", 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256, 2);
+    write_audio_file(input_dir / "two.wav", 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256, 2);
+    write_audio_file(input_dir / "three.wav", 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256, 2);
+
+    const core::ConversionSettings settings {
+        .input_path = input_dir.string(),
+        .input_mode = core::InputMode::Directory,
+        .output_mode = core::OutputMode::WriteNewFiles,
+        .output_directory = output_dir.string(),
+        .file_name_rule = core::FileNameRule::Prefix,
+        .file_name_affix = "converted_",
+        .sample_rate = 44100,
+        .output_format = core::OutputFormat::Wav,
+        .bit_depth = core::BitDepth::Pcm16,
+        .cpu_worker_count = 10,
+    };
+
+    const auto result = core::run_conversion(settings);
+    assert(result.resolved_worker_count == 3);
+    assert(result.total_files == 3);
+    assert(result.success_count == 3);
+}
+
+void test_mixed_file_results_do_not_stop_the_whole_run()
+{
+    const auto dir = make_temp_dir();
+    const auto input_dir = dir / "input";
+    const auto nested_dir = input_dir / "nested";
+    const auto output_dir = dir / "output";
+    fs::create_directories(nested_dir);
+    fs::create_directories(output_dir);
+
+    const auto success_input = input_dir / "success.wav";
+    const auto skip_input = input_dir / "skip.wav";
+    const auto failed_input = nested_dir / "failed.wav";
+    write_audio_file(success_input, 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256, 2);
+    write_audio_file(skip_input, 44100, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256, 2);
+    write_audio_file(failed_input, 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256, 2);
+
+    std::ofstream(output_dir / "nested") << "block nested output directory";
+
+    std::vector<core::RunFileStatus> statuses;
+    const core::ConversionSettings settings {
+        .input_path = input_dir.string(),
+        .input_mode = core::InputMode::Directory,
+        .output_mode = core::OutputMode::WriteNewFiles,
+        .output_directory = output_dir.string(),
+        .file_name_rule = core::FileNameRule::Prefix,
+        .file_name_affix = "converted_",
+        .sample_rate = 44100,
+        .output_format = core::OutputFormat::Wav,
+        .bit_depth = core::BitDepth::Pcm16,
+        .cpu_worker_count = 10,
+    };
+
+    const auto result = core::run_conversion(settings, {
+        .on_file_complete = [&statuses](core::RunFileUpdate update) {
+            statuses.push_back(update.status);
+        },
+    });
+
+    assert(result.resolved_worker_count == 3);
+    assert(result.total_files == 3);
+    assert(result.success_count == 1);
+    assert(result.failed_count == 1);
+    assert(result.skipped_count == 1);
+    assert(statuses.size() == 3);
+    assert(static_cast<int>(std::count(statuses.begin(), statuses.end(), core::RunFileStatus::Success)) == 1);
+    assert(static_cast<int>(std::count(statuses.begin(), statuses.end(), core::RunFileStatus::Failed)) == 1);
+    assert(static_cast<int>(std::count(statuses.begin(), statuses.end(), core::RunFileStatus::Skipped)) == 1);
+    assert(fs::exists(output_dir / "converted_success.wav"));
+    assert(!fs::exists(output_dir / "converted_skip.wav"));
+    assert(!fs::exists(output_dir / "nested" / "converted_failed.wav"));
 }
 
 } // namespace
@@ -548,5 +688,8 @@ int main()
     test_mono_conversion();
     test_supported_input_format_conversion();
     test_duplicate_selected_input_paths_emit_stable_indices();
+    test_all_cpu_cores_resolve_to_single_worker_for_single_input();
+    test_requested_worker_count_is_capped_by_input_count();
+    test_mixed_file_results_do_not_stop_the_whole_run();
     return 0;
 }
