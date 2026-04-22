@@ -85,20 +85,32 @@ Homebrew を使う前提。
     cmake --build --preset local-llvm --target stage_macos_app
 
 出力先:
-- `build/dist/stage/cpp-audio-converter.app`
+- `build/dist/stage/SamplePrep.app`
 
 ### 7. 配布用 ZIP
     cmake --build --preset local-llvm --target package_macos_zip
 
 出力先:
-- `build/dist/cpp-audio-converter-0.1.0-macOS-arm64.zip`
+- `build/dist/SamplePrep-0.1.0-macOS-arm64.zip`
+
+### 8. release ディレクトリの完成形
+    cmake --build --preset local-llvm --target package_macos_release
+
+出力先:
+- `build/dist/release/SamplePrep.app`
+- `build/dist/release/README.txt`
+- `build/dist/release/SamplePrep-0.1.0-macOS-arm64.zip`
 
 補足:
-- `.app` の build 自体は `build/cpp-audio-converter.app`
-- `stage_macos_app` と `package_macos_zip` は `fixup_bundle` を使って `libsndfile` と従属 dylib をアプリ内へコピーする
-- bundle identifier を変える場合は configure 時に `-DAUDIO_CONVERTER_BUNDLE_IDENTIFIER=...` を付ける
+- ZIP は無圧縮で生成する
+- ZIP の中には `.app` と `README.txt` を含める
 
-### 8. 未署名配布時の前提
+補足:
+- `.app` の build 自体は `build/SamplePrep.app`
+- `stage_macos_app` と `package_macos_zip` は `fixup_bundle` を使って `libsndfile` と従属 dylib をアプリ内へコピーする
+- bundle identifier を変える場合は configure 時に `-DSAMPLEPREP_BUNDLE_IDENTIFIER=...` を付ける
+
+### 9. 未署名配布時の前提
 現時点の標準フローは未署名の `.app` / ZIP を配布する形とする。
 
 - Apple Silicon 向けの配布物は `stage_macos_app` または `package_macos_zip` で生成する
@@ -108,7 +120,7 @@ Homebrew を使う前提。
 Apple の案内:
 - https://support.apple.com/en-us/HT202491
 
-### 9. Optional: codesign / notarization
+### 10. Optional: codesign / notarization
 Developer ID 配布へ切り替える場合は以下を別途用意する。
 
 - `Developer ID Application` 証明書
@@ -118,7 +130,7 @@ Developer ID 配布へ切り替える場合は以下を別途用意する。
 
     CODESIGN_IDENTITY="Developer ID Application: Example" \
     NOTARYTOOL_PROFILE="notary-profile" \
-    ./scripts/macos/sign_and_notarize.sh build/dist/stage/cpp-audio-converter.app
+    ./scripts/macos/sign_and_notarize.sh build/dist/stage/SamplePrep.app
 
 `NOTARYTOOL_PROFILE` を省略すると、codesign と検証だけを行う。
 
@@ -140,7 +152,7 @@ Developer ID 配布へ切り替える場合は以下を別途用意する。
 最小構成のイメージ:
 
     cmake_minimum_required(VERSION 3.21)
-    project(audio_converter LANGUAGES CXX)
+    project(SamplePrep LANGUAGES CXX)
 
     include(FetchContent)
     FetchContent_Declare(
@@ -151,15 +163,15 @@ Developer ID 配布へ切り替える場合は以下を別途用意する。
     )
     FetchContent_MakeAvailable(Slint)
 
-    add_executable(audio_converter
+    add_executable(sampleprep
         src/main.cpp
     )
 
-    slint_target_sources(audio_converter
+    slint_target_sources(sampleprep
         ui/app-window.slint
     )
 
-    target_link_libraries(audio_converter PRIVATE Slint::Slint)
+    target_link_libraries(sampleprep PRIVATE Slint::Slint)
 
 ---
 

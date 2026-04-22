@@ -5,11 +5,11 @@
 
 #include <utility>
 
-std::function<void(audio_converter::util::NativeDropEvent)> g_drop_handler;
+std::function<void(sampleprep::util::NativeDropEvent)> g_drop_handler;
 
-audio_converter::util::NativeDropEvent drop_event_from_pasteboard(NSPasteboard *pasteboard)
+sampleprep::util::NativeDropEvent drop_event_from_pasteboard(NSPasteboard *pasteboard)
 {
-    audio_converter::util::NativeDropEvent event;
+    sampleprep::util::NativeDropEvent event;
 
     NSDictionary *options = @{ NSPasteboardURLReadingFileURLsOnlyKey : @YES };
     NSArray<NSURL *> *urls = [pasteboard readObjectsForClasses:@[ [NSURL class] ] options:options];
@@ -143,7 +143,7 @@ void install_drop_methods_on_view(NSView *view)
 
 AudioConverterDropMonitor *g_drop_monitor = nil;
 
-namespace audio_converter::util {
+namespace sampleprep::util {
 
 bool install_native_file_drop_handler(std::function<void(NativeDropEvent)> handler, std::string &error_message)
 {
@@ -163,4 +163,4 @@ bool install_native_file_drop_handler(std::function<void(NativeDropEvent)> handl
     return true;
 }
 
-} // namespace audio_converter::util
+} // namespace sampleprep::util

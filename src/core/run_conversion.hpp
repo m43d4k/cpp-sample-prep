@@ -7,7 +7,7 @@
 #include <functional>
 #include <string>
 
-namespace audio_converter::core {
+namespace sampleprep::core {
 
 enum class RunFileStatus {
     Success,
@@ -41,4 +41,4 @@ struct RunConversionResult {
 
 RunConversionResult run_conversion(const ConversionSettings &settings, const RunCallbacks &callbacks = {});
 
-} // namespace audio_converter::core
+} // namespace sampleprep::core

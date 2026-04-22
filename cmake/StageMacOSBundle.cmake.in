@@ -1,10 +1,41 @@
 include(BundleUtilities)
 
-set(source_app "@CMAKE_BINARY_DIR@/@AUDIO_CONVERTER_APP_NAME@.app")
+set(source_app "@CMAKE_BINARY_DIR@/@SAMPLEPREP_APP_NAME@.app")
 set(stage_root "@CMAKE_BINARY_DIR@/dist/stage")
-set(staged_app "${stage_root}/@AUDIO_CONVERTER_APP_NAME@.app")
-set(zip_path "@CMAKE_BINARY_DIR@/dist/@AUDIO_CONVERTER_APP_NAME@-@PROJECT_VERSION@-macOS-arm64.zip")
-set(search_dirs "@AUDIO_CONVERTER_BUNDLE_SEARCH_DIRS@")
+set(staged_app "${stage_root}/@SAMPLEPREP_APP_NAME@.app")
+set(zip_path "@CMAKE_BINARY_DIR@/dist/@SAMPLEPREP_APP_NAME@-@PROJECT_VERSION@-macOS-arm64.zip")
+set(search_dirs "@SAMPLEPREP_BUNDLE_SEARCH_DIRS@")
+
+find_program(codesign_executable codesign REQUIRED)
+
+function(ad_hoc_sign_file target_path)
+    execute_process(
+        COMMAND "${codesign_executable}" --force --sign - "${target_path}"
+        RESULT_VARIABLE sign_result
+        OUTPUT_VARIABLE sign_stdout
+        ERROR_VARIABLE sign_stderr
+    )
+    if(NOT sign_result EQUAL 0)
+        string(STRIP "${sign_stdout}" sign_stdout)
+        string(STRIP "${sign_stderr}" sign_stderr)
+        message(FATAL_ERROR
+            "Failed to ad-hoc sign ${target_path}\nstdout: ${sign_stdout}\nstderr: ${sign_stderr}")
+    endif()
+endfunction()
+
+function(ad_hoc_sign_directory base_dir)
+    if(NOT EXISTS "${base_dir}")
+        return()
+    endif()
+
+    file(GLOB_RECURSE nested_items LIST_DIRECTORIES FALSE "${base_dir}/*")
+    foreach(item IN LISTS nested_items)
+        if(IS_SYMLINK "${item}")
+            continue()
+        endif()
+        ad_hoc_sign_file("${item}")
+    endforeach()
+endfunction()
 
 if(NOT EXISTS "${source_app}")
     message(FATAL_ERROR "Built app bundle not found: ${source_app}")
@@ -16,9 +47,13 @@ file(COPY "${source_app}" DESTINATION "${stage_root}")
 
 set(BU_CHMOD_BUNDLE_ITEMS ON)
 fixup_bundle("${staged_app}" "" "${search_dirs}")
+ad_hoc_sign_directory("${staged_app}/Contents/Frameworks")
+ad_hoc_sign_directory("${staged_app}/Contents/PlugIns")
+ad_hoc_sign_directory("${staged_app}/Contents/MacOS")
+ad_hoc_sign_file("${staged_app}")
 verify_app("${staged_app}")
 
-if(AUDIO_CONVERTER_CREATE_ZIP)
+if(SAMPLEPREP_CREATE_ZIP)
     file(REMOVE "${zip_path}")
     execute_process(
         COMMAND /usr/bin/ditto -c -k --norsrc --keepParent "${staged_app}" "${zip_path}"

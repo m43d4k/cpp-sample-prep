@@ -5,7 +5,7 @@
 #include <filesystem>
 #include <string>
 
-namespace audio_converter::audio {
+namespace sampleprep::audio {
 
 enum class ProcessStatus {
     Success,
@@ -28,4 +28,4 @@ struct ProcessFileResult {
 
 ProcessFileResult convert_audio_file(const ProcessFileRequest &request);
 
-} // namespace audio_converter::audio
+} // namespace sampleprep::audio

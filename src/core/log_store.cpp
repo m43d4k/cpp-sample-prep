@@ -2,7 +2,7 @@
 
 #include <utility>
 
-namespace audio_converter::core {
+namespace sampleprep::core {
 
 void LogStore::clear()
 {
@@ -19,4 +19,4 @@ const std::vector<std::string> &LogStore::lines() const
     return lines_;
 }
 
-} // namespace audio_converter::core
+} // namespace sampleprep::core

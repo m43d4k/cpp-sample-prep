@@ -1,9 +1,9 @@
-# cpp-audio-converter
+# SamplePrep
 
 GUI audio converter for common audio inputs with WAV / AIFF output.
 
 ## 概要
-`cpp-audio-converter` は、macOS 向けの GUI オーディオコンバーターです。  
+`SamplePrep` は、macOS 向けの GUI オーディオコンバーターです。  
 WAV / AIFF / FLAC / MP3 / OGG / CAF の読み込みと、WAV / AIFF の書き出し、サンプリングレート変換、bit depth 変換を行います。
 
 Linux 対応はひとまず見送っています。
@@ -102,24 +102,32 @@ Sample rate converter designed by Aleksey Vaneev of Voxengo.
     cmake --preset local-llvm
     cmake --build --preset local-llvm
 
-ビルド後、ローカル起動用の `.app` は `build/cpp-audio-converter.app` に生成される。
+ビルド後、ローカル起動用の `.app` は `build/SamplePrep.app` に生成される。
 
 ### self-contained `.app` の stage
     cmake --build --preset local-llvm --target stage_macos_app
 
 出力先:
-- `build/dist/stage/cpp-audio-converter.app`
+- `build/dist/stage/SamplePrep.app`
 
 ### 配布用 ZIP の生成
     cmake --build --preset local-llvm --target package_macos_zip
 
 出力先:
-- `build/dist/cpp-audio-converter-0.1.0-macOS-arm64.zip`
+- `build/dist/SamplePrep-0.1.0-macOS-arm64.zip`
+
+### release ディレクトリの生成
+    cmake --build --preset local-llvm --target package_macos_release
+
+出力先:
+- `build/dist/release/SamplePrep.app`
+- `build/dist/release/README.txt`
+- `build/dist/release/SamplePrep-0.1.0-macOS-arm64.zip`
 
 補足:
 - stage / package 時に `libsndfile` とその依存ライブラリを `.app` 内へ同梱する
-- bundle identifier の既定値は `com.example.cpp-audio-converter`
-- 必要なら configure 時に `-DAUDIO_CONVERTER_BUNDLE_IDENTIFIER=com.your-domain.cpp-audio-converter` を指定して上書きできる
+- bundle identifier の既定値は `com.example.sampleprep`
+- 必要なら configure 時に `-DSAMPLEPREP_BUNDLE_IDENTIFIER=com.your-domain.sampleprep` を指定して上書きできる
 
 ## 配布方針
 現時点の標準配布方針は以下とする。
@@ -147,7 +155,7 @@ Developer ID 配布を行う場合は補助スクリプトを使える。
 
     CODESIGN_IDENTITY="Developer ID Application: Example" \
     NOTARYTOOL_PROFILE="notary-profile" \
-    ./scripts/macos/sign_and_notarize.sh build/dist/stage/cpp-audio-converter.app
+    ./scripts/macos/sign_and_notarize.sh build/dist/stage/SamplePrep.app
 
 これは現時点の標準手順ではない。
 

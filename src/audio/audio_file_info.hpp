@@ -6,7 +6,7 @@
 #include <optional>
 #include <string>
 
-namespace audio_converter::audio {
+namespace sampleprep::audio {
 
 struct AudioFileInfo {
     int channels { 0 };
@@ -24,4 +24,4 @@ std::optional<core::OutputFormat> output_format_from_sndfile_format(int format);
 std::optional<core::BitDepth> bit_depth_from_sndfile_format(int format);
 ReadAudioFileInfoResult read_audio_file_info(const std::filesystem::path &path);
 
-} // namespace audio_converter::audio
+} // namespace sampleprep::audio

@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-namespace audio_converter::util {
+namespace sampleprep::util {
 
 struct NativeDialogResult {
     bool accepted { false };
@@ -15,4 +15,4 @@ NativeDialogResult pick_input_files();
 NativeDialogResult pick_input_directory();
 NativeDialogResult pick_output_directory();
 
-} // namespace audio_converter::util
+} // namespace sampleprep::util

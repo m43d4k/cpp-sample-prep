@@ -1,4 +1,4 @@
-# Audio Converter 要件定義 v1
+# SamplePrep 要件定義 v1
 
 ## 1. 概要
 macOS 向けの GUI オーディオコンバーターを作成する。

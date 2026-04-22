@@ -19,19 +19,19 @@
 #include <vector>
 
 namespace fs = std::filesystem;
-namespace core = audio_converter::core;
-namespace audio = audio_converter::audio;
-namespace util = audio_converter::util;
+namespace core = sampleprep::core;
+namespace audio = sampleprep::audio;
+namespace util = sampleprep::util;
 
 namespace {
 
-#ifndef AUDIO_CONVERTER_SOURCE_DIR
-#error "AUDIO_CONVERTER_SOURCE_DIR must be defined for fixture-based tests."
+#ifndef SAMPLEPREP_SOURCE_DIR
+#error "SAMPLEPREP_SOURCE_DIR must be defined for fixture-based tests."
 #endif
 
 fs::path make_temp_dir()
 {
-    const auto base = fs::temp_directory_path() / fs::path("cpp-audio-converter-tests");
+    const auto base = fs::temp_directory_path() / fs::path("sampleprep-tests");
     fs::create_directories(base);
     const auto seed = static_cast<unsigned long long>(
         std::chrono::steady_clock::now().time_since_epoch().count());
@@ -44,7 +44,7 @@ fs::path make_temp_dir()
 
 fs::path fixture_path(std::string_view name)
 {
-    return fs::path(AUDIO_CONVERTER_SOURCE_DIR) / "tests" / "fixtures" / name;
+    return fs::path(SAMPLEPREP_SOURCE_DIR) / "tests" / "fixtures" / name;
 }
 
 void copy_fixture_file(std::string_view name, const fs::path &destination)

@@ -18,8 +18,8 @@
 #include <unordered_map>
 #include <vector>
 
-namespace core = audio_converter::core;
-namespace util = audio_converter::util;
+namespace core = sampleprep::core;
+namespace util = sampleprep::util;
 
 namespace {
 

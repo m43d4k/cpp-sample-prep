@@ -9,7 +9,7 @@
 #include <utility>
 #include <vector>
 
-namespace audio_converter::util {
+namespace sampleprep::util {
 
 namespace {
 
@@ -186,4 +186,4 @@ NativeDialogResult pick_output_directory()
 #endif
 }
 
-} // namespace audio_converter::util
+} // namespace sampleprep::util

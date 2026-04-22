@@ -14,7 +14,7 @@
 #include <string>
 #include <vector>
 
-namespace audio_converter::audio {
+namespace sampleprep::audio {
 
 namespace {
 
@@ -282,4 +282,4 @@ ProcessFileResult convert_audio_file(const ProcessFileRequest &request)
     return { .status = ProcessStatus::Success, .detail = {} };
 }
 
-} // namespace audio_converter::audio
+} // namespace sampleprep::audio

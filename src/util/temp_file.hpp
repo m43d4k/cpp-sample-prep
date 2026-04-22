@@ -3,7 +3,7 @@
 #include <filesystem>
 #include <string>
 
-namespace audio_converter::util {
+namespace sampleprep::util {
 
 class ScopedTempFile {
 public:
@@ -32,4 +32,4 @@ bool commit_overwrite(
     const std::filesystem::path &final_output_path,
     std::string &error_message);
 
-} // namespace audio_converter::util
+} // namespace sampleprep::util

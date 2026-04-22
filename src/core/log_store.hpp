@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-namespace audio_converter::core {
+namespace sampleprep::core {
 
 class LogStore {
 public:
@@ -16,4 +16,4 @@ private:
     std::vector<std::string> lines_;
 };
 
-} // namespace audio_converter::core
+} // namespace sampleprep::core

@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-namespace audio_converter::util {
+namespace sampleprep::util {
 
 struct InputPathInspection {
     std::optional<core::InputMode> input_mode;
@@ -29,4 +29,4 @@ std::filesystem::path replacement_output_path(
     core::OutputFormat output_format);
 std::string to_display_string(const std::filesystem::path &path);
 
-} // namespace audio_converter::util
+} // namespace sampleprep::util

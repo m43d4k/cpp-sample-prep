@@ -2,7 +2,7 @@
 
 #include <sndfile.h>
 
-namespace audio_converter::audio {
+namespace sampleprep::audio {
 
 std::optional<core::OutputFormat> output_format_from_sndfile_format(int format)
 {
@@ -59,4 +59,4 @@ ReadAudioFileInfoResult read_audio_file_info(const std::filesystem::path &path)
     };
 }
 
-} // namespace audio_converter::audio
+} // namespace sampleprep::audio

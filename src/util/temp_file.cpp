@@ -5,7 +5,7 @@
 #include <string>
 #include <system_error>
 
-namespace audio_converter::util {
+namespace sampleprep::util {
 
 namespace {
 
@@ -103,4 +103,4 @@ bool commit_overwrite(
     return true;
 }
 
-} // namespace audio_converter::util
+} // namespace sampleprep::util

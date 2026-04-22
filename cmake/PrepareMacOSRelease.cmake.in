@@ -1,0 +1,35 @@
+set(stage_app "@CMAKE_BINARY_DIR@/dist/stage/@SAMPLEPREP_APP_NAME@.app")
+set(release_root "@CMAKE_BINARY_DIR@/dist/release")
+set(release_app "${release_root}/@SAMPLEPREP_APP_NAME@.app")
+set(readme_source "@CMAKE_SOURCE_DIR@/cmake/ReleaseReadme.txt")
+set(readme_target "${release_root}/README.txt")
+set(zip_path "${release_root}/@SAMPLEPREP_APP_NAME@-@PROJECT_VERSION@-macOS-arm64.zip")
+
+if(NOT EXISTS "${stage_app}")
+    message(FATAL_ERROR "Staged app bundle not found: ${stage_app}")
+endif()
+
+if(NOT EXISTS "${readme_source}")
+    message(FATAL_ERROR "Release README template not found: ${readme_source}")
+endif()
+
+find_program(zip_executable zip REQUIRED)
+
+file(REMOVE_RECURSE "${release_root}")
+file(MAKE_DIRECTORY "${release_root}")
+file(COPY "${stage_app}" DESTINATION "${release_root}")
+file(COPY_FILE "${readme_source}" "${readme_target}" ONLY_IF_DIFFERENT)
+
+execute_process(
+    COMMAND "${zip_executable}" -q -r -y -0 "${zip_path}" "@SAMPLEPREP_APP_NAME@.app" "README.txt"
+    WORKING_DIRECTORY "${release_root}"
+    RESULT_VARIABLE zip_result
+    OUTPUT_VARIABLE zip_stdout
+    ERROR_VARIABLE zip_stderr
+)
+if(NOT zip_result EQUAL 0)
+    string(STRIP "${zip_stdout}" zip_stdout)
+    string(STRIP "${zip_stderr}" zip_stderr)
+    message(FATAL_ERROR
+        "Failed to create release ZIP archive: ${zip_path}\nstdout: ${zip_stdout}\nstderr: ${zip_stderr}")
+endif()

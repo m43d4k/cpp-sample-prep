@@ -4,7 +4,7 @@
 #include <array>
 #include <cctype>
 
-namespace audio_converter::util {
+namespace sampleprep::util {
 
 namespace {
 
@@ -178,4 +178,4 @@ std::string to_display_string(const std::filesystem::path &path)
     return path.lexically_normal().string();
 }
 
-} // namespace audio_converter::util
+} // namespace sampleprep::util

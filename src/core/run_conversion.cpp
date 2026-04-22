@@ -13,7 +13,7 @@
 #include <thread>
 #include <vector>
 
-namespace audio_converter::core {
+namespace sampleprep::core {
 
 namespace {
 
@@ -275,4 +275,4 @@ RunConversionResult run_conversion(const ConversionSettings &settings, const Run
     return result;
 }
 
-} // namespace audio_converter::core
+} // namespace sampleprep::core

@@ -6,7 +6,7 @@
 #include <string_view>
 #include <vector>
 
-namespace audio_converter::core {
+namespace sampleprep::core {
 
 enum class InputMode {
     File,
@@ -115,4 +115,4 @@ std::string to_string(FileNameRule value);
 std::string to_string(OutputFormat value);
 std::string to_string(BitDepth value);
 
-} // namespace audio_converter::core
+} // namespace sampleprep::core

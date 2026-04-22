@@ -7,7 +7,7 @@ usage() {
 Usage:
   CODESIGN_IDENTITY="Developer ID Application: Example" \
   NOTARYTOOL_PROFILE="notary-profile" \
-  ./scripts/macos/sign_and_notarize.sh path/to/cpp-audio-converter.app
+  ./scripts/macos/sign_and_notarize.sh path/to/SamplePrep.app
 
 Environment:
   CODESIGN_IDENTITY   Required. Developer ID Application identity name.

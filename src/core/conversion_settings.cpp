@@ -4,7 +4,7 @@
 #include <filesystem>
 #include <utility>
 
-namespace audio_converter::core {
+namespace sampleprep::core {
 
 namespace {
 
@@ -340,4 +340,4 @@ std::string to_string(BitDepth value)
     return "Unknown";
 }
 
-} // namespace audio_converter::core
+} // namespace sampleprep::core

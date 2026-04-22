@@ -8,7 +8,7 @@
 #include <filesystem>
 #include <optional>
 
-namespace audio_converter::core {
+namespace sampleprep::core {
 
 namespace {
 
@@ -170,4 +170,4 @@ InputPreviewResult preview_input_files(const InputPreviewRequest &request)
     return result;
 }
 
-} // namespace audio_converter::core
+} // namespace sampleprep::core

@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-namespace audio_converter::core {
+namespace sampleprep::core {
 
 struct TargetFileRow {
     std::string source_path;
@@ -35,4 +35,4 @@ struct InputPreviewResult {
 
 InputPreviewResult preview_input_files(const InputPreviewRequest &request);
 
-} // namespace audio_converter::core
+} // namespace sampleprep::core

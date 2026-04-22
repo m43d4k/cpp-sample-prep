@@ -5,17 +5,17 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
     <key>CFBundleDisplayName</key>
-    <string>@AUDIO_CONVERTER_APP_NAME@</string>
+    <string>@SAMPLEPREP_APP_NAME@</string>
     <key>CFBundleExecutable</key>
-    <string>@AUDIO_CONVERTER_EXECUTABLE_NAME@</string>
+    <string>@SAMPLEPREP_EXECUTABLE_NAME@</string>
     <key>CFBundleIdentifier</key>
-    <string>@AUDIO_CONVERTER_BUNDLE_IDENTIFIER@</string>
+    <string>@SAMPLEPREP_BUNDLE_IDENTIFIER@</string>
     <key>CFBundleIconFile</key>
-    <string>@AUDIO_CONVERTER_ICON_FILE_NAME@</string>
+    <string>@SAMPLEPREP_ICON_FILE_NAME@</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>@AUDIO_CONVERTER_APP_NAME@</string>
+    <string>@SAMPLEPREP_APP_NAME@</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
@@ -23,7 +23,7 @@
     <key>CFBundleVersion</key>
     <string>@PROJECT_VERSION@</string>
     <key>LSMinimumSystemVersion</key>
-    <string>@AUDIO_CONVERTER_MACOS_MIN_VERSION@</string>
+    <string>@SAMPLEPREP_MACOS_MIN_VERSION@</string>
     <key>NSHighResolutionCapable</key>
     <true/>
 </dict>
