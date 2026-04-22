@@ -28,6 +28,15 @@ struct TargetFileTableState {
     std::shared_ptr<slint::VectorModel<ui::TargetFileRow>> model;
 };
 
+struct InputSelectionState {
+    std::vector<std::filesystem::path> explicit_file_paths;
+};
+
+std::string multi_file_selection_label(std::size_t file_count)
+{
+    return std::to_string(file_count) + " files selected";
+}
+
 std::shared_ptr<slint::VectorModel<slint::SharedString>> to_string_model(const std::vector<std::string> &rows)
 {
     std::vector<slint::SharedString> model_rows;
@@ -72,11 +81,11 @@ std::shared_ptr<slint::VectorModel<ui::TargetFileRow>> to_target_file_model(cons
     return std::make_shared<slint::VectorModel<ui::TargetFileRow>>(std::move(model_rows));
 }
 
-core::UiSettingsInput read_ui_settings(const ui::MainWindow &window)
+core::UiSettingsInput read_ui_settings(const ui::MainWindow &window, const InputSelectionState &input_selection)
 {
     return {
         .input_path = std::string(window.get_input_path()),
-        .input_mode_index = window.get_input_mode_index(),
+        .selected_input_paths = input_selection.explicit_file_paths,
         .overwrite_originals = window.get_overwrite_originals(),
         .output_directory = std::string(window.get_output_directory()),
         .file_name_rule_index = window.get_file_name_rule_index(),
@@ -87,11 +96,11 @@ core::UiSettingsInput read_ui_settings(const ui::MainWindow &window)
     };
 }
 
-core::InputPreviewRequest read_input_preview_request(const ui::MainWindow &window)
+core::InputPreviewRequest read_input_preview_request(const ui::MainWindow &window, const InputSelectionState &input_selection)
 {
     return {
         .input_path = std::string(window.get_input_path()),
-        .input_mode_index = window.get_input_mode_index(),
+        .selected_input_paths = input_selection.explicit_file_paths,
         .overwrite_originals = window.get_overwrite_originals(),
         .output_directory = std::string(window.get_output_directory()),
         .file_name_rule_index = window.get_file_name_rule_index(),
@@ -123,7 +132,7 @@ void sync_target_file_summary(ui::MainWindow &window, const TargetFileTableState
         + std::to_string(selected_target_file_count(table_state)) + " selected."));
 }
 
-void sync_input_preview(ui::MainWindow &window, TargetFileTableState &table_state)
+void sync_input_preview(ui::MainWindow &window, TargetFileTableState &table_state, const InputSelectionState &input_selection)
 {
     std::unordered_map<std::string, bool> selected_rows;
     selected_rows.reserve(table_state.rows.size());
@@ -131,7 +140,7 @@ void sync_input_preview(ui::MainWindow &window, TargetFileTableState &table_stat
         selected_rows.emplace(row.source_path, row.selected);
     }
 
-    const auto preview = core::preview_input_files(read_input_preview_request(window));
+    const auto preview = core::preview_input_files(read_input_preview_request(window, input_selection));
     table_state.rows = preview.rows;
     for (auto &row : table_state.rows) {
         if (const auto it = selected_rows.find(row.source_path); it != selected_rows.end()) {
@@ -148,7 +157,7 @@ void sync_input_preview(ui::MainWindow &window, TargetFileTableState &table_stat
         const auto input_path = std::string(window.get_input_path());
         window.set_target_files_summary(to_shared_string(
             input_path.empty()
-                ? "Select an input file or folder to preview targets."
+                ? ""
                 : "No supported input files found."));
     } else {
         sync_target_file_summary(window, table_state);
@@ -161,10 +170,65 @@ void append_log(ui::MainWindow &window, core::LogStore &log_store, std::string l
     sync_log_view(window, log_store);
 }
 
+bool apply_input_selection(
+    ui::MainWindow &window,
+    TargetFileTableState &table_state,
+    InputSelectionState &input_selection,
+    const std::vector<std::string> &paths,
+    std::string &error_message)
+{
+    error_message.clear();
+    if (paths.empty()) {
+        error_message = "no input paths were selected";
+        return false;
+    }
+
+    if (paths.size() == 1) {
+        const auto inspected_path = util::inspect_input_path(paths.front());
+        if (!inspected_path.input_mode.has_value()) {
+            error_message = inspected_path.error_message;
+            return false;
+        }
+
+        if (*inspected_path.input_mode == core::InputMode::Directory) {
+            input_selection.explicit_file_paths.clear();
+            window.set_input_path(to_shared_string(inspected_path.normalized_path));
+        } else {
+            input_selection.explicit_file_paths = { std::filesystem::path(inspected_path.normalized_path) };
+            window.set_input_path(to_shared_string(inspected_path.normalized_path));
+        }
+
+        sync_input_preview(window, table_state, input_selection);
+        return true;
+    }
+
+    std::vector<std::filesystem::path> explicit_file_paths;
+    explicit_file_paths.reserve(paths.size());
+    for (const auto &path : paths) {
+        const auto inspected_path = util::inspect_input_path(path);
+        if (!inspected_path.input_mode.has_value()) {
+            error_message = inspected_path.error_message;
+            return false;
+        }
+        if (*inspected_path.input_mode != core::InputMode::File) {
+            error_message = "select multiple files or a single folder";
+            return false;
+        }
+
+        explicit_file_paths.emplace_back(inspected_path.normalized_path);
+    }
+
+    input_selection.explicit_file_paths = std::move(explicit_file_paths);
+    window.set_input_path(to_shared_string(multi_file_selection_label(input_selection.explicit_file_paths.size())));
+    sync_input_preview(window, table_state, input_selection);
+    return true;
+}
+
 void apply_dropped_input_paths(
     ui::MainWindow &window,
     core::LogStore &log_store,
     TargetFileTableState &table_state,
+    InputSelectionState &input_selection,
     const util::NativeDropEvent &event)
 {
     if (!event.error_message.empty()) {
@@ -179,22 +243,13 @@ void apply_dropped_input_paths(
         return;
     }
 
-    if (event.paths.size() != 1) {
-        append_log(window, log_store, "Failed: drag and drop accepts exactly one file or folder.");
+    std::string selection_error;
+    if (!apply_input_selection(window, table_state, input_selection, event.paths, selection_error)) {
+        append_log(window, log_store, "Failed: " + selection_error);
         window.set_status_text("Drop rejected");
         return;
     }
 
-    const auto inspected_path = util::inspect_input_path(event.paths.front());
-    if (!inspected_path.input_mode.has_value()) {
-        append_log(window, log_store, "Failed: " + inspected_path.error_message);
-        window.set_status_text("Drop rejected");
-        return;
-    }
-
-    window.set_input_mode_index(*inspected_path.input_mode == core::InputMode::File ? 0 : 1);
-    window.set_input_path(to_shared_string(inspected_path.normalized_path));
-    sync_input_preview(window, table_state);
     append_log(window, log_store, "Status: input updated from drag and drop.");
     window.set_status_text("Input updated");
 }
@@ -328,7 +383,7 @@ void handle_dialog_result(
         return;
     }
 
-    setter(result.path);
+    setter(result.paths);
 }
 
 } // namespace
@@ -338,10 +393,10 @@ int main()
     auto window = ui::MainWindow::create();
     core::LogStore log_store;
     TargetFileTableState target_file_table;
+    InputSelectionState input_selection;
     std::atomic_bool is_running { false };
     std::jthread worker_thread;
 
-    window->set_input_mode_index(0);
     window->set_overwrite_originals(false);
     window->set_file_name_rule_index(0);
     window->set_file_name_affix(to_shared_string(std::string(core::default_file_name_affix(core::FileNameRule::Prefix))));
@@ -351,30 +406,34 @@ int main()
     window->set_is_running(false);
     window->set_status_text("Idle");
     window->set_progress_value(0.0f);
-    window->set_target_files_summary(to_shared_string("Select an input file or folder to preview targets."));
+    window->set_target_files_summary(to_shared_string(""));
     target_file_table.model = to_target_file_model({});
     window->set_target_file_rows(target_file_table.model);
 
-    log_store.push("Status: select an input file or folder.");
+    log_store.push("Status: select input files or a folder.");
     log_store.push("Status: supported input formats are WAV / AIFF / FLAC / MP3 / OGG / CAF.");
     sync_log_view(*window, log_store);
 
-    window->on_request_pick_input_file([weak_window = slint::ComponentWeakHandle(window), &log_store, &target_file_table] {
+    window->on_request_pick_input_files(
+        [weak_window = slint::ComponentWeakHandle(window), &log_store, &target_file_table, &input_selection] {
         const auto maybe_window = weak_window.lock();
         if (!maybe_window.has_value()) {
             return;
         }
 
         auto window = *maybe_window;
-        const auto result = util::pick_input_file();
-        handle_dialog_result(*window, log_store, result, [&](const std::string &path) {
-            window->set_input_mode_index(0);
-            window->set_input_path(to_shared_string(path));
-            sync_input_preview(*window, target_file_table);
+        const auto result = util::pick_input_files();
+        handle_dialog_result(*window, log_store, result, [&](const std::vector<std::string> &paths) {
+            std::string selection_error;
+            if (!apply_input_selection(*window, target_file_table, input_selection, paths, selection_error)) {
+                append_log(*window, log_store, "Failed: " + selection_error);
+                window->set_status_text("Selection failed");
+            }
         });
     });
 
-    window->on_request_pick_input_directory([weak_window = slint::ComponentWeakHandle(window), &log_store, &target_file_table] {
+    window->on_request_pick_input_directory(
+        [weak_window = slint::ComponentWeakHandle(window), &log_store, &target_file_table, &input_selection] {
         const auto maybe_window = weak_window.lock();
         if (!maybe_window.has_value()) {
             return;
@@ -382,14 +441,17 @@ int main()
 
         auto window = *maybe_window;
         const auto result = util::pick_input_directory();
-        handle_dialog_result(*window, log_store, result, [&](const std::string &path) {
-            window->set_input_mode_index(1);
-            window->set_input_path(to_shared_string(path));
-            sync_input_preview(*window, target_file_table);
+        handle_dialog_result(*window, log_store, result, [&](const std::vector<std::string> &paths) {
+            std::string selection_error;
+            if (!apply_input_selection(*window, target_file_table, input_selection, paths, selection_error)) {
+                append_log(*window, log_store, "Failed: " + selection_error);
+                window->set_status_text("Selection failed");
+            }
         });
     });
 
-    window->on_request_pick_output_directory([weak_window = slint::ComponentWeakHandle(window), &log_store, &target_file_table] {
+    window->on_request_pick_output_directory(
+        [weak_window = slint::ComponentWeakHandle(window), &log_store, &target_file_table, &input_selection] {
         const auto maybe_window = weak_window.lock();
         if (!maybe_window.has_value()) {
             return;
@@ -397,20 +459,28 @@ int main()
 
         auto window = *maybe_window;
         const auto result = util::pick_output_directory();
-        handle_dialog_result(*window, log_store, result, [&](const std::string &path) {
-            window->set_output_directory(to_shared_string(path));
-            sync_input_preview(*window, target_file_table);
+        handle_dialog_result(*window, log_store, result, [&](const std::vector<std::string> &paths) {
+            if (paths.empty()) {
+                return;
+            }
+
+            window->set_output_directory(to_shared_string(paths.front()));
+            sync_input_preview(*window, target_file_table, input_selection);
         });
     });
 
-    window->on_request_refresh_input_preview([weak_window = slint::ComponentWeakHandle(window), &target_file_table] {
-        const auto maybe_window = weak_window.lock();
-        if (!maybe_window.has_value()) {
-            return;
-        }
+    window->on_request_refresh_input_preview(
+        [weak_window = slint::ComponentWeakHandle(window), &target_file_table, &input_selection] {
+            const auto maybe_window = weak_window.lock();
+            if (!maybe_window.has_value()) {
+                return;
+            }
 
-        auto window = *maybe_window;
-        sync_input_preview(*window, target_file_table);
+            auto window = *maybe_window;
+            if (std::string(window->get_input_path()).empty()) {
+                input_selection.explicit_file_paths.clear();
+            }
+            sync_input_preview(*window, target_file_table, input_selection);
     });
 
     window->on_set_target_file_selection([weak_window = slint::ComponentWeakHandle(window), &target_file_table](
@@ -436,7 +506,12 @@ int main()
             set_all_target_file_selection(*window, target_file_table, selected);
         });
 
-    window->on_request_run([weak_window = slint::ComponentWeakHandle(window), &log_store, &target_file_table, &is_running, &worker_thread] {
+    window->on_request_run([weak_window = slint::ComponentWeakHandle(window),
+                               &log_store,
+                               &target_file_table,
+                               &input_selection,
+                               &is_running,
+                               &worker_thread] {
         if (is_running.exchange(true)) {
             return;
         }
@@ -450,7 +525,7 @@ int main()
         auto window = *maybe_window;
         log_store.clear();
 
-        const auto build_result = core::build_settings(read_ui_settings(*window));
+        const auto build_result = core::build_settings(read_ui_settings(*window, input_selection));
         if (!build_result.errors.empty()) {
             for (const auto &error : build_result.errors) {
                 log_store.push("Failed: " + error);
@@ -463,7 +538,7 @@ int main()
             return;
         }
 
-        sync_input_preview(*window, target_file_table);
+        sync_input_preview(*window, target_file_table, input_selection);
         const auto selected_paths = selected_input_paths(target_file_table);
         if (selected_paths.empty()) {
             log_store.push("Failed: select at least one target file.");
@@ -533,24 +608,25 @@ int main()
         });
     });
 
-    sync_input_preview(*window, target_file_table);
+    sync_input_preview(*window, target_file_table, input_selection);
     window->show();
 
     std::string drop_error_message;
     if (!util::install_native_file_drop_handler(
-            [weak_window = slint::ComponentWeakHandle(window), &log_store, &target_file_table](util::NativeDropEvent event) mutable {
+            [weak_window = slint::ComponentWeakHandle(window), &log_store, &target_file_table, &input_selection](
+                util::NativeDropEvent event) mutable {
                 const auto maybe_window = weak_window.lock();
                 if (!maybe_window.has_value()) {
                     return;
                 }
 
                 auto window = *maybe_window;
-                apply_dropped_input_paths(*window, log_store, target_file_table, event);
+                apply_dropped_input_paths(*window, log_store, target_file_table, input_selection, event);
             },
             drop_error_message)) {
         append_log(*window, log_store, "Status: drag and drop unavailable (" + drop_error_message + ").");
     } else {
-        append_log(*window, log_store, "Status: drag and drop is enabled for a single input file or folder.");
+        append_log(*window, log_store, "Status: drag and drop is enabled for multiple files or a single folder.");
     }
 
     slint::run_event_loop();

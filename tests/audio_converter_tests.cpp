@@ -78,7 +78,6 @@ void test_build_settings()
 
     const auto result = core::build_settings({
         .input_path = input_file.string(),
-        .input_mode_index = 0,
         .overwrite_originals = false,
         .output_directory = output_dir.string(),
         .file_name_rule_index = 0,
@@ -92,9 +91,23 @@ void test_build_settings()
     assert(core::default_file_name_affix(core::FileNameRule::Prefix) == core::kDefaultPrefixAffix);
     assert(core::default_file_name_affix(core::FileNameRule::Postfix) == core::kDefaultPostfixAffix);
 
+    const auto explicit_files = core::build_settings({
+        .input_path = "2 files selected",
+        .selected_input_paths = { input_file, input_file },
+        .overwrite_originals = false,
+        .output_directory = output_dir.string(),
+        .file_name_rule_index = 0,
+        .sample_rate_index = 1,
+        .output_format_index = 0,
+        .bit_depth_index = 1,
+    });
+    assert(explicit_files.errors.empty());
+    assert(explicit_files.settings.has_value());
+    assert(explicit_files.settings->input_mode == core::InputMode::File);
+    assert(explicit_files.settings->selected_input_paths.size() == 2);
+
     const auto invalid = core::build_settings({
         .input_path = input_file.string(),
-        .input_mode_index = 0,
         .overwrite_originals = false,
         .output_directory = output_dir.string(),
         .file_name_rule_index = 0,
@@ -264,7 +277,6 @@ void test_input_preview()
 
     const auto preview = core::preview_input_files({
         .input_path = input_dir.string(),
-        .input_mode_index = 1,
         .overwrite_originals = false,
         .output_directory = (dir / "output").string(),
         .file_name_rule_index = 0,
@@ -282,7 +294,6 @@ void test_input_preview()
 
     const auto single_file_preview = core::preview_input_files({
         .input_path = (input_dir / "b-song.wav").string(),
-        .input_mode_index = 0,
         .overwrite_originals = true,
         .output_format_index = 1,
     });
@@ -292,7 +303,6 @@ void test_input_preview()
 
     const auto unsupported_file_preview = core::preview_input_files({
         .input_path = (input_dir / "a-notes.txt").string(),
-        .input_mode_index = 0,
         .overwrite_originals = false,
         .output_directory = (dir / "output").string(),
         .file_name_rule_index = 0,
@@ -301,6 +311,23 @@ void test_input_preview()
     });
     assert(unsupported_file_preview.errors.empty());
     assert(unsupported_file_preview.rows.empty());
+
+    const auto explicit_files_preview = core::preview_input_files({
+        .input_path = "2 files selected",
+        .selected_input_paths = {
+            input_dir / "b-song.wav",
+            nested_dir / "c-deep.wav",
+        },
+        .overwrite_originals = false,
+        .output_directory = (dir / "output").string(),
+        .file_name_rule_index = 0,
+        .file_name_affix = "converted_",
+        .output_format_index = 0,
+    });
+    assert(explicit_files_preview.errors.empty());
+    assert(explicit_files_preview.rows.size() == 2);
+    assert(explicit_files_preview.rows[0].output_path.find("output") != std::string::npos);
+    assert(explicit_files_preview.rows[0].output_path.find("nested") == std::string::npos);
 }
 
 void test_overwrite_extension_change()

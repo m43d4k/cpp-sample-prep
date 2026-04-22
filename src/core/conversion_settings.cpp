@@ -8,10 +8,6 @@ namespace audio_converter::core {
 
 namespace {
 
-constexpr std::array<InputMode, 2> kInputModes {
-    InputMode::File,
-    InputMode::Directory,
-};
 constexpr std::array<int, 4> kSampleRates { 44100, 48000, 88200, 96000 };
 constexpr std::array<OutputFormat, 2> kOutputFormats { OutputFormat::Wav, OutputFormat::Aiff };
 constexpr std::array<BitDepth, 4> kBitDepths {
@@ -54,30 +50,41 @@ BuildSettingsResult build_settings(const UiSettingsInput &input)
 {
     BuildSettingsResult result;
     ConversionSettings settings;
-    const std::filesystem::path input_path(input.input_path);
 
     settings.input_path = input.input_path;
-    const auto input_mode = value_from_index(kInputModes, input.input_mode_index);
-    if (!input_mode.has_value()) {
-        result.errors.emplace_back("Input mode selection is invalid.");
-    } else {
-        settings.input_mode = *input_mode;
-    }
+    settings.selected_input_paths = input.selected_input_paths;
     settings.output_mode = input.overwrite_originals ? OutputMode::OverwriteOriginals : OutputMode::WriteNewFiles;
     settings.output_directory = input.output_directory;
     settings.file_name_affix = input.file_name_affix;
 
-    if (settings.input_path.empty()) {
-        result.errors.emplace_back("Input path is required.");
-    } else if (!std::filesystem::exists(input_path)) {
-        result.errors.emplace_back("Input path does not exist.");
-    } else if (input_mode.has_value() && *input_mode == InputMode::File && !std::filesystem::is_regular_file(input_path)) {
-        result.errors.emplace_back("Input path must be a file.");
-    } else if (
-        input_mode.has_value()
-        && *input_mode == InputMode::Directory
-        && !std::filesystem::is_directory(input_path)) {
-        result.errors.emplace_back("Input path must be a directory.");
+    if (!settings.selected_input_paths.empty()) {
+        settings.input_mode = InputMode::File;
+        settings.input_path = settings.selected_input_paths.front().lexically_normal().string();
+
+        for (const auto &selected_path : settings.selected_input_paths) {
+            if (!std::filesystem::exists(selected_path)) {
+                result.errors.emplace_back("Selected input path does not exist.");
+                break;
+            }
+            if (!std::filesystem::is_regular_file(selected_path)) {
+                result.errors.emplace_back("Selected input path must be a file.");
+                break;
+            }
+        }
+    } else {
+        const std::filesystem::path input_path(input.input_path);
+
+        if (settings.input_path.empty()) {
+            result.errors.emplace_back("Input path is required.");
+        } else if (!std::filesystem::exists(input_path)) {
+            result.errors.emplace_back("Input path does not exist.");
+        } else if (std::filesystem::is_regular_file(input_path)) {
+            settings.input_mode = InputMode::File;
+        } else if (std::filesystem::is_directory(input_path)) {
+            settings.input_mode = InputMode::Directory;
+        } else {
+            result.errors.emplace_back("Input path must be a file or directory.");
+        }
     }
 
     const auto file_name_rule = value_from_index(kFileNameRules, input.file_name_rule_index);

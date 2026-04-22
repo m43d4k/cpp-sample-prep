@@ -112,7 +112,6 @@ export component MainWindow inherits Window {
     private property <length> column_output_path_min_width: 140px;
 
     in-out property <string> input_path;
-    in-out property <int> input_mode_index;
     in-out property <bool> overwrite_originals;
     in-out property <string> output_directory;
     in-out property <int> file_name_rule_index;
@@ -129,7 +128,7 @@ export component MainWindow inherits Window {
 
     callback request_run();
     callback request_refresh_input_preview();
-    callback request_pick_input_file();
+    callback request_pick_input_files();
     callback request_pick_input_directory();
     callback request_pick_output_directory();
     callback set_target_file_selection(string, bool);
@@ -167,98 +166,35 @@ export component MainWindow inherits Window {
                     spacing: root.block_spacing;
                     alignment: start;
 
-                    VerticalBox {
-                        spacing: root.label_spacing;
-                        alignment: start;
-                        max-height: self.min-height;
-
-                        Text { text: "Input mode"; }
-                        ComboBox {
-                            model: ["Single file", "Single folder"];
-                            current-index <=> root.input_mode_index;
-                            enabled: !root.is_running;
-                            min-height: root.control_row_height;
-                            max-height: root.control_row_height;
-                            selected => {
-                                root.request_refresh_input_preview();
-                            }
-                        }
-                    }
-
-                    VerticalBox {
-                        spacing: root.label_spacing;
-                        alignment: start;
-
-                        Text { text: root.input_mode_index == 0 ? "Input file" : "Input folder"; }
-                        LineEdit {
-                            text <=> root.input_path;
-                            enabled: !root.is_running;
-                            min-height: root.control_row_height;
-                            max-height: root.control_row_height;
-                            placeholder-text: root.input_mode_index == 0 ? "/path/to/input-file" : "/path/to/input-folder";
-                            edited(text) => {
-                                root.request_refresh_input_preview();
-                            }
-                        }
-
-                        HorizontalBox {
-                            spacing: root.action_spacing;
-                            alignment: start;
-                            max-height: self.min-height;
-
-                            Button {
-                                text: "Select File";
-                                enabled: !root.is_running;
-                                min-height: root.control_row_height;
-                                max-height: root.control_row_height;
-                                clicked => {
-                                    root.request_pick_input_file();
-                                }
-                            }
-
-                            Button {
-                                text: "Select Folder";
-                                enabled: !root.is_running;
-                                min-height: root.control_row_height;
-                                max-height: root.control_row_height;
-                                clicked => {
-                                    root.request_pick_input_directory();
-                                }
-                            }
-                        }
-
-                        Text {
-                            text: "Use the buttons above, or drag and drop a single file or folder onto the window on supported platforms.";
-                            color: #666666;
-                            wrap: word-wrap;
-                        }
-                    }
-                }
-            }
-
-            SectionBox {
-                content_padding: root.group_padding;
-                VerticalBox {
-                    spacing: root.block_spacing;
-                    alignment: start;
-
-                    VerticalBox {
-                        spacing: root.label_spacing;
-                        alignment: start;
-
-                        Text { text: "Target files"; }
-                        Text {
-                            text: root.target_file_rows.length > 0
-                                ? root.target_files_summary + " Click a row to include or exclude it."
-                                : root.target_files_summary;
-                            color: #666666;
-                        }
+                    if root.target_file_rows.length > 0 : Text {
+                        text: root.target_files_summary + " Click a row to include or exclude it.";
+                        color: #666666;
                     }
 
                     HorizontalBox {
                         spacing: root.action_spacing;
                         alignment: start;
                         max-height: self.min-height;
+
+                        Button {
+                            text: "Add files";
+                            enabled: !root.is_running;
+                            min-height: root.control_row_height;
+                            max-height: root.control_row_height;
+                            clicked => {
+                                root.request_pick_input_files();
+                            }
+                        }
+
+                        Button {
+                            text: "Add directory";
+                            enabled: !root.is_running;
+                            min-height: root.control_row_height;
+                            max-height: root.control_row_height;
+                            clicked => {
+                                root.request_pick_input_directory();
+                            }
+                        }
 
                         Button {
                             text: "Select All";

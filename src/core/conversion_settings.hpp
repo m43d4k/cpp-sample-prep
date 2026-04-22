@@ -51,7 +51,7 @@ constexpr std::string_view default_file_name_affix(FileNameRule value)
 
 struct UiSettingsInput {
     std::string input_path;
-    int input_mode_index { 0 };
+    std::vector<std::filesystem::path> selected_input_paths;
     bool overwrite_originals { false };
     std::string output_directory;
     int file_name_rule_index { 0 };

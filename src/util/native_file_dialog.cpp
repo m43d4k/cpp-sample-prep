@@ -6,12 +6,14 @@
 #include <filesystem>
 #include <sstream>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace audio_converter::util {
 
 namespace {
 
-std::string trim(std::string value)
+std::string trim_path(std::string value)
 {
     while (!value.empty() && (value.back() == '\n' || value.back() == '\r')) {
         value.pop_back();
@@ -20,6 +22,39 @@ std::string trim(std::string value)
         value.pop_back();
     }
     return value;
+}
+
+std::vector<std::string> parse_dialog_output(std::string output)
+{
+    std::vector<std::string> paths;
+
+    const auto append_part = [&paths](std::string part) {
+        part = trim_path(std::move(part));
+        if (!part.empty()) {
+            paths.push_back(std::move(part));
+        }
+    };
+
+    if (output.find('\n') != std::string::npos || output.find('\r') != std::string::npos) {
+        std::stringstream stream(output);
+        std::string line;
+        while (std::getline(stream, line)) {
+            append_part(std::move(line));
+        }
+        return paths;
+    }
+
+    if (output.find('|') != std::string::npos) {
+        std::stringstream stream(output);
+        std::string part;
+        while (std::getline(stream, part, '|')) {
+            append_part(std::move(part));
+        }
+        return paths;
+    }
+
+    append_part(std::move(output));
+    return paths;
 }
 
 bool executable_exists(const std::string &name)
@@ -64,44 +99,61 @@ NativeDialogResult run_dialog_command(const std::string &command)
         return result;
     }
 
-    result.path = trim(std::move(output));
-    result.accepted = !result.path.empty();
+    result.paths = parse_dialog_output(std::move(output));
+    result.accepted = !result.paths.empty();
     return result;
 }
 
 #if defined(__APPLE__)
-NativeDialogResult pick_path_with_osascript(const std::string &script)
+NativeDialogResult run_osascript(const std::vector<std::string> &lines)
 {
-    return run_dialog_command("/usr/bin/osascript -e '" + script + "' 2>/dev/null");
+    std::string command = "/usr/bin/osascript";
+    for (const auto &line : lines) {
+        command += " -e '";
+        command += line;
+        command += "'";
+    }
+    command += " 2>/dev/null";
+    return run_dialog_command(command);
 }
 #endif
 
 } // namespace
 
-NativeDialogResult pick_input_file()
+NativeDialogResult pick_input_files()
 {
 #if defined(__APPLE__)
-    return pick_path_with_osascript("POSIX path of (choose file with prompt \"Select input audio file\")");
+    return run_osascript({
+        "set selectedFiles to choose file with prompt \"Select input audio files\" with multiple selections allowed",
+        "set outputText to \"\"",
+        "repeat with currentFile in selectedFiles",
+        "set outputText to outputText & POSIX path of currentFile & linefeed",
+        "end repeat",
+        "return outputText",
+    });
 #elif defined(__linux__)
     if (executable_exists("zenity")) {
         return run_dialog_command(
-            "zenity --file-selection --title='Select input audio file' "
+            "zenity --file-selection --multiple --title='Select input audio files' "
             "--file-filter='Audio files | *.wav *.wave *.aif *.aiff *.flac *.mp3 *.ogg *.oga *.caf' 2>/dev/null");
     }
     if (executable_exists("kdialog")) {
         return run_dialog_command(
-            "kdialog --getopenfilename . '*.wav *.wave *.aif *.aiff *.flac *.mp3 *.ogg *.oga *.caf' 2>/dev/null");
+            "kdialog --getopenfilename . '*.wav *.wave *.aif *.aiff *.flac *.mp3 *.ogg *.oga *.caf' "
+            "--multiple --separate-output 2>/dev/null");
     }
-    return { .accepted = false, .path = {}, .error_message = "install zenity or kdialog to use the native file picker on Linux" };
+    return { .accepted = false, .paths = {}, .error_message = "install zenity or kdialog to use the native file picker on Linux" };
 #else
-    return { .accepted = false, .path = {}, .error_message = "native file picker is not implemented for this platform" };
+    return { .accepted = false, .paths = {}, .error_message = "native file picker is not implemented for this platform" };
 #endif
 }
 
 NativeDialogResult pick_input_directory()
 {
 #if defined(__APPLE__)
-    return pick_path_with_osascript("POSIX path of (choose folder with prompt \"Select input folder\")");
+    return run_osascript({
+        "POSIX path of (choose folder with prompt \"Select input folder\")",
+    });
 #elif defined(__linux__)
     if (executable_exists("zenity")) {
         return run_dialog_command("zenity --file-selection --directory --title='Select input folder' 2>/dev/null");
@@ -109,16 +161,18 @@ NativeDialogResult pick_input_directory()
     if (executable_exists("kdialog")) {
         return run_dialog_command("kdialog --getexistingdirectory . 2>/dev/null");
     }
-    return { .accepted = false, .path = {}, .error_message = "install zenity or kdialog to use the native folder picker on Linux" };
+    return { .accepted = false, .paths = {}, .error_message = "install zenity or kdialog to use the native folder picker on Linux" };
 #else
-    return { .accepted = false, .path = {}, .error_message = "native folder picker is not implemented for this platform" };
+    return { .accepted = false, .paths = {}, .error_message = "native folder picker is not implemented for this platform" };
 #endif
 }
 
 NativeDialogResult pick_output_directory()
 {
 #if defined(__APPLE__)
-    return pick_path_with_osascript("POSIX path of (choose folder with prompt \"Select output folder\")");
+    return run_osascript({
+        "POSIX path of (choose folder with prompt \"Select output folder\")",
+    });
 #elif defined(__linux__)
     if (executable_exists("zenity")) {
         return run_dialog_command("zenity --file-selection --directory --title='Select output folder' 2>/dev/null");
@@ -126,9 +180,9 @@ NativeDialogResult pick_output_directory()
     if (executable_exists("kdialog")) {
         return run_dialog_command("kdialog --getexistingdirectory . 2>/dev/null");
     }
-    return { .accepted = false, .path = {}, .error_message = "install zenity or kdialog to use the native folder picker on Linux" };
+    return { .accepted = false, .paths = {}, .error_message = "install zenity or kdialog to use the native folder picker on Linux" };
 #else
-    return { .accepted = false, .path = {}, .error_message = "native folder picker is not implemented for this platform" };
+    return { .accepted = false, .paths = {}, .error_message = "native folder picker is not implemented for this platform" };
 #endif
 }
 
