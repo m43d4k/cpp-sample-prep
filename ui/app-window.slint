@@ -95,10 +95,14 @@ export component MainWindow inherits Window {
     private property <length> section_spacing: 2px;
     private property <length> block_spacing: 8px;
     private property <length> label_spacing: 2px;
+    private property <length> field_action_spacing: 8px;
     private property <length> inline_spacing: 8px;
     private property <length> action_spacing: 6px;
     private property <length> control_row_height: 22px;
     private property <length> table_row_height: 34px;
+    private property <length> file_name_rule_width: 280px;
+    private property <length> file_name_affix_width: 280px;
+    private property <length> checkbox_align_offset: 10px;
     private property <length> column_input_width: 110px;
     private property <length> column_input_path_width: 180px;
     private property <length> column_status_width: 180px;
@@ -161,14 +165,21 @@ export component MainWindow inherits Window {
             }
 
             SectionBox {
-                content_padding: root.group_padding;
+                content_padding: 0px;
                 VerticalBox {
                     spacing: root.block_spacing;
                     alignment: start;
+                    padding-top: root.group_padding;
+                    padding-right: root.group_padding;
+                    padding-bottom: root.group_padding;
 
-                    if root.target_file_rows.length > 0 : Text {
-                        text: root.target_files_summary + " Click a row to include or exclude it.";
-                        color: #666666;
+                    if root.target_file_rows.length > 0 : VerticalBox {
+                        padding-left: root.group_padding;
+
+                        Text {
+                            text: root.target_files_summary + " Click a row to include or exclude it.";
+                            color: #666666;
+                        }
                     }
 
                     HorizontalBox {
@@ -228,72 +239,19 @@ export component MainWindow inherits Window {
                         }
                     }
 
-                    Rectangle {
-                        width: 100%;
-                        height: root.table_row_height;
-                        background: Palette.background;
-                        border-width: 1px;
-                        border-color: Palette.border;
+                    VerticalBox {
+                        spacing: root.block_spacing;
+                        alignment: start;
+                        padding-left: root.group_padding;
 
-                        HorizontalLayout {
-                            x: 0;
-                            y: 0;
-                            width: parent.width;
-                            height: parent.height;
-                            spacing: 0px;
-
-                            TableCell {
-                                text_value: "Input";
-                                width: root.column_input_width;
-                                height: parent.height;
-                                is_header: true;
-                            }
-                            TableCell {
-                                text_value: "Input path";
-                                width: root.column_input_path_width;
-                                height: parent.height;
-                                is_header: true;
-                            }
-                            TableCell {
-                                text_value: "Status";
-                                width: root.column_status_width;
-                                height: parent.height;
-                                is_header: true;
-                            }
-                            TableCell {
-                                text_value: "Info";
-                                width: root.column_info_width;
-                                height: parent.height;
-                                is_header: true;
-                            }
-                            TableCell {
-                                text_value: "Output";
-                                width: root.column_output_width;
-                                height: parent.height;
-                                is_header: true;
-                            }
-                            TableCell {
-                                text_value: "Output path";
-                                width: max(root.column_output_path_min_width, parent.width - root.table_fixed_width);
-                                height: parent.height;
-                                is_header: true;
-                            }
-                        }
-                    }
-
-                    ListView {
-                        width: 100%;
-                        min-height: 152px;
-                        preferred-height: 192px;
-
-                        for row in root.target_file_rows : Rectangle {
-                            width: parent.width;
+                        Rectangle {
+                            width: 100%;
                             height: root.table_row_height;
+                            background: Palette.background;
                             border-width: 1px;
-                            border-color: row.selected ? Palette.selection-background : Palette.border;
-                            background: row.selected ? Palette.selection-background : Palette.alternate-background;
+                            border-color: Palette.border;
 
-                            row-layout := HorizontalLayout {
+                            HorizontalLayout {
                                 x: 0;
                                 y: 0;
                                 width: parent.width;
@@ -301,47 +259,106 @@ export component MainWindow inherits Window {
                                 spacing: 0px;
 
                                 TableCell {
-                                    text_value: row.input;
+                                    text_value: "Input";
                                     width: root.column_input_width;
                                     height: parent.height;
-                                    text_color: row.selected ? Palette.selection-foreground : Palette.foreground;
+                                    is_header: true;
                                 }
                                 TableCell {
-                                    text_value: row.input_path;
+                                    text_value: "Input path";
                                     width: root.column_input_path_width;
                                     height: parent.height;
-                                    text_color: row.selected ? Palette.selection-foreground : Palette.foreground;
+                                    is_header: true;
                                 }
                                 TableCell {
-                                    text_value: row.status;
+                                    text_value: "Status";
                                     width: root.column_status_width;
                                     height: parent.height;
-                                    text_color: row.selected ? Palette.selection-foreground : Palette.foreground;
+                                    is_header: true;
                                 }
                                 TableCell {
-                                    text_value: row.info;
+                                    text_value: "Info";
                                     width: root.column_info_width;
                                     height: parent.height;
-                                    text_color: row.selected ? Palette.selection-foreground : Palette.foreground;
+                                    is_header: true;
                                 }
                                 TableCell {
-                                    text_value: row.output;
+                                    text_value: "Output";
                                     width: root.column_output_width;
                                     height: parent.height;
-                                    text_color: row.selected ? Palette.selection-foreground : Palette.foreground;
+                                    is_header: true;
                                 }
                                 TableCell {
-                                    text_value: row.output_path;
+                                    text_value: "Output path";
                                     width: max(root.column_output_path_min_width, parent.width - root.table_fixed_width);
                                     height: parent.height;
-                                    text_color: row.selected ? Palette.selection-foreground : Palette.foreground;
+                                    is_header: true;
                                 }
                             }
+                        }
 
-                            TouchArea {
-                                enabled: !root.is_running;
-                                clicked => {
-                                    root.set_target_file_selection(row.source_path, !row.selected);
+                        ListView {
+                            width: 100%;
+                            min-height: 152px;
+                            preferred-height: 192px;
+
+                            for row in root.target_file_rows : Rectangle {
+                                width: parent.width;
+                                height: root.table_row_height;
+                                border-width: 1px;
+                                border-color: row.selected ? Palette.selection-background : Palette.border;
+                                background: row.selected ? Palette.selection-background : Palette.alternate-background;
+
+                                row-layout := HorizontalLayout {
+                                    x: 0;
+                                    y: 0;
+                                    width: parent.width;
+                                    height: parent.height;
+                                    spacing: 0px;
+
+                                    TableCell {
+                                        text_value: row.input;
+                                        width: root.column_input_width;
+                                        height: parent.height;
+                                        text_color: row.selected ? Palette.selection-foreground : Palette.foreground;
+                                    }
+                                    TableCell {
+                                        text_value: row.input_path;
+                                        width: root.column_input_path_width;
+                                        height: parent.height;
+                                        text_color: row.selected ? Palette.selection-foreground : Palette.foreground;
+                                    }
+                                    TableCell {
+                                        text_value: row.status;
+                                        width: root.column_status_width;
+                                        height: parent.height;
+                                        text_color: row.selected ? Palette.selection-foreground : Palette.foreground;
+                                    }
+                                    TableCell {
+                                        text_value: row.info;
+                                        width: root.column_info_width;
+                                        height: parent.height;
+                                        text_color: row.selected ? Palette.selection-foreground : Palette.foreground;
+                                    }
+                                    TableCell {
+                                        text_value: row.output;
+                                        width: root.column_output_width;
+                                        height: parent.height;
+                                        text_color: row.selected ? Palette.selection-foreground : Palette.foreground;
+                                    }
+                                    TableCell {
+                                        text_value: row.output_path;
+                                        width: max(root.column_output_path_min_width, parent.width - root.table_fixed_width);
+                                        height: parent.height;
+                                        text_color: row.selected ? Palette.selection-foreground : Palette.foreground;
+                                    }
+                                }
+
+                                TouchArea {
+                                    enabled: !root.is_running;
+                                    clicked => {
+                                        root.set_target_file_selection(row.source_path, !row.selected);
+                                    }
                                 }
                             }
                         }
@@ -355,12 +372,26 @@ export component MainWindow inherits Window {
                     spacing: root.block_spacing;
                     alignment: start;
 
-                    CheckBox {
-                        text: "Overwrite original files";
-                        checked <=> root.overwrite_originals;
-                        enabled: !root.is_running;
-                        toggled => {
-                            root.request_refresh_input_preview();
+                    Rectangle {
+                        width: 100%;
+                        height: root.control_row_height;
+                        background: transparent;
+
+                        HorizontalLayout {
+                            x: 0;
+                            y: 0;
+                            width: parent.width;
+                            height: parent.height;
+                            padding-left: root.checkbox_align_offset;
+
+                            CheckBox {
+                                text: "Overwrite original files";
+                                checked <=> root.overwrite_originals;
+                                enabled: !root.is_running;
+                                toggled => {
+                                    root.request_refresh_input_preview();
+                                }
+                            }
                         }
                     }
 
@@ -380,61 +411,93 @@ export component MainWindow inherits Window {
                             }
                         }
 
-                        HorizontalBox {
-                            spacing: root.action_spacing;
-                            alignment: start;
-                            max-height: self.min-height;
+                        Rectangle {
+                            width: 100%;
+                            height: root.field_action_spacing - root.label_spacing;
+                            background: transparent;
+                        }
 
-                            Button {
-                                text: "Select Output";
-                                enabled: !root.overwrite_originals && !root.is_running;
-                                min-height: root.control_row_height;
-                                max-height: root.control_row_height;
-                                clicked => {
-                                    root.request_pick_output_directory();
+                        Rectangle {
+                            width: 100%;
+                            height: root.control_row_height;
+                            background: transparent;
+
+                            HorizontalLayout {
+                                x: 0;
+                                y: 0;
+                                width: parent.width;
+                                height: parent.height;
+
+                                Button {
+                                    text: "Select Output";
+                                    horizontal-stretch: 0;
+                                    enabled: !root.overwrite_originals && !root.is_running;
+                                    min-height: root.control_row_height;
+                                    max-height: root.control_row_height;
+                                    clicked => {
+                                        root.request_pick_output_directory();
+                                    }
+                                }
+
+                                Rectangle {
+                                    background: transparent;
                                 }
                             }
                         }
                     }
 
-                    HorizontalBox {
-                        spacing: root.inline_spacing;
+                    Rectangle {
+                        width: 100%;
+                        height: 44px;
+                        background: transparent;
 
-                        VerticalBox {
-                            spacing: root.label_spacing;
-                            Text { text: "File name rule"; }
-                            ComboBox {
-                                model: ["Prefix", "Postfix"];
-                                current-index <=> root.file_name_rule_index;
-                                enabled: !root.overwrite_originals && !root.is_running;
-                                min-height: root.control_row_height;
-                                max-height: root.control_row_height;
-                                selected => {
-                                    if (root.file_name_affix == ""
-                                        || root.file_name_affix == root.default_prefix_affix
-                                        || root.file_name_affix == root.default_postfix_affix) {
-                                        root.file_name_affix = self.current-index == 0
-                                            ? root.default_prefix_affix
-                                            : root.default_postfix_affix;
+                        HorizontalLayout {
+                            x: 0;
+                            y: 0;
+                            width: parent.width;
+                            height: parent.height;
+                            spacing: root.inline_spacing;
+
+                            VerticalBox {
+                                width: root.file_name_rule_width;
+                                spacing: root.label_spacing;
+
+                                Text { text: "File name rule"; }
+                                ComboBox {
+                                    model: ["Prefix", "Postfix"];
+                                    current-index <=> root.file_name_rule_index;
+                                    enabled: !root.overwrite_originals && !root.is_running;
+                                    min-height: root.control_row_height;
+                                    max-height: root.control_row_height;
+                                    selected => {
+                                        if (root.file_name_affix == ""
+                                            || root.file_name_affix == root.default_prefix_affix
+                                            || root.file_name_affix == root.default_postfix_affix) {
+                                            root.file_name_affix = self.current-index == 0
+                                                ? root.default_prefix_affix
+                                                : root.default_postfix_affix;
+                                        }
+                                        root.request_refresh_input_preview();
                                     }
-                                    root.request_refresh_input_preview();
                                 }
                             }
-                        }
 
-                        VerticalBox {
-                            spacing: root.label_spacing;
-                            Text { text: "Prefix / postfix text"; }
-                            LineEdit {
-                                text <=> root.file_name_affix;
-                                enabled: !root.overwrite_originals && !root.is_running;
-                                min-height: root.control_row_height;
-                                max-height: root.control_row_height;
-                                placeholder-text: root.file_name_rule_index == 0
-                                    ? root.default_prefix_affix
-                                    : root.default_postfix_affix;
-                                edited(text) => {
-                                    root.request_refresh_input_preview();
+                            VerticalBox {
+                                width: root.file_name_affix_width;
+                                spacing: root.label_spacing;
+
+                                Text { text: "Prefix / postfix text"; }
+                                LineEdit {
+                                    text <=> root.file_name_affix;
+                                    enabled: !root.overwrite_originals && !root.is_running;
+                                    min-height: root.control_row_height;
+                                    max-height: root.control_row_height;
+                                    placeholder-text: root.file_name_rule_index == 0
+                                        ? root.default_prefix_affix
+                                        : root.default_postfix_affix;
+                                    edited(text) => {
+                                        root.request_refresh_input_preview();
+                                    }
                                 }
                             }
                         }
