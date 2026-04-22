@@ -134,6 +134,29 @@ void test_supported_input_extensions()
     assert(!util::has_supported_input_extension("input.txt"));
 }
 
+void test_inspect_input_path()
+{
+    const auto dir = make_temp_dir();
+    const auto input_dir = dir / "input";
+    const auto input_file = input_dir / "clip.wav";
+    fs::create_directories(input_dir);
+    write_wave(input_file, 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 128, 2);
+
+    const auto file_result = util::inspect_input_path(input_file);
+    assert(file_result.input_mode == core::InputMode::File);
+    assert(file_result.error_message.empty());
+    assert(file_result.normalized_path == input_file.lexically_normal().string());
+
+    const auto directory_result = util::inspect_input_path(input_dir);
+    assert(directory_result.input_mode == core::InputMode::Directory);
+    assert(directory_result.error_message.empty());
+    assert(directory_result.normalized_path == input_dir.lexically_normal().string());
+
+    const auto missing_result = util::inspect_input_path(dir / "missing.wav");
+    assert(!missing_result.input_mode.has_value());
+    assert(missing_result.error_message == "Input path does not exist.");
+}
+
 void test_directory_conversion()
 {
     const auto dir = make_temp_dir();
@@ -339,6 +362,7 @@ int main()
     test_build_settings();
     test_same_condition_skip();
     test_supported_input_extensions();
+    test_inspect_input_path();
     test_directory_conversion();
     test_selected_input_paths_filter_unsupported_extensions();
     test_input_preview();

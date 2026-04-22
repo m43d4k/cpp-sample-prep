@@ -3,12 +3,20 @@
 #include "core/conversion_settings.hpp"
 
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <vector>
 
 namespace audio_converter::util {
 
+struct InputPathInspection {
+    std::optional<core::InputMode> input_mode;
+    std::string normalized_path;
+    std::string error_message;
+};
+
 std::vector<std::filesystem::path> collect_input_files(const core::ConversionSettings &settings);
+InputPathInspection inspect_input_path(const std::filesystem::path &path);
 bool has_supported_input_extension(const std::filesystem::path &path);
 std::filesystem::path build_output_path(
     const std::filesystem::path &input_path,

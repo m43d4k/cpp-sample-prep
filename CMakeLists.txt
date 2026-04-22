@@ -6,6 +6,10 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+if(APPLE)
+    enable_language(OBJCXX)
+endif()
+
 include(FetchContent)
 
 FetchContent_Declare(
@@ -32,6 +36,14 @@ add_library(audio_converter_lib
     src/util/path_utils.cpp
     src/util/temp_file.cpp
 )
+
+if(APPLE)
+    target_sources(audio_converter_lib PRIVATE src/util/native_drop_target_mac.mm)
+    target_compile_options(audio_converter_lib PRIVATE $<$<COMPILE_LANGUAGE:OBJCXX>:-fobjc-arc>)
+    target_link_libraries(audio_converter_lib PRIVATE "-framework AppKit")
+else()
+    target_sources(audio_converter_lib PRIVATE src/util/native_drop_target.cpp)
+endif()
 
 target_include_directories(audio_converter_lib
     PUBLIC

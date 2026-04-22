@@ -94,6 +94,51 @@ std::vector<std::filesystem::path> collect_input_files(const core::ConversionSet
     return files;
 }
 
+InputPathInspection inspect_input_path(const std::filesystem::path &path)
+{
+    InputPathInspection result;
+    if (path.empty()) {
+        result.error_message = "Input path is required.";
+        return result;
+    }
+
+    std::error_code error;
+    const auto exists = std::filesystem::exists(path, error);
+    if (error) {
+        result.error_message = "Failed to inspect input path.";
+        return result;
+    }
+    if (!exists) {
+        result.error_message = "Input path does not exist.";
+        return result;
+    }
+
+    const auto is_regular_file = std::filesystem::is_regular_file(path, error);
+    if (error) {
+        result.error_message = "Failed to inspect input path.";
+        return result;
+    }
+
+    const auto is_directory = std::filesystem::is_directory(path, error);
+    if (error) {
+        result.error_message = "Failed to inspect input path.";
+        return result;
+    }
+
+    result.normalized_path = to_display_string(path);
+    if (is_regular_file) {
+        result.input_mode = core::InputMode::File;
+        return result;
+    }
+    if (is_directory) {
+        result.input_mode = core::InputMode::Directory;
+        return result;
+    }
+
+    result.error_message = "Input path must be a file or directory.";
+    return result;
+}
+
 bool has_supported_input_extension(const std::filesystem::path &path)
 {
     const auto extension = lowercase(path.extension().string());

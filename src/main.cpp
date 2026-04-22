@@ -3,6 +3,7 @@
 #include "core/input_preview.hpp"
 #include "core/log_store.hpp"
 #include "core/run_conversion.hpp"
+#include "util/native_drop_target.hpp"
 #include "util/native_file_dialog.hpp"
 #include "util/path_utils.hpp"
 
@@ -158,6 +159,44 @@ void append_log(ui::MainWindow &window, core::LogStore &log_store, std::string l
 {
     log_store.push(std::move(line));
     sync_log_view(window, log_store);
+}
+
+void apply_dropped_input_paths(
+    ui::MainWindow &window,
+    core::LogStore &log_store,
+    TargetFileTableState &table_state,
+    const util::NativeDropEvent &event)
+{
+    if (!event.error_message.empty()) {
+        append_log(window, log_store, "Failed: " + event.error_message + ".");
+        window.set_status_text("Drop rejected");
+        return;
+    }
+
+    if (window.get_is_running()) {
+        append_log(window, log_store, "Failed: drag and drop is disabled while conversion is running.");
+        window.set_status_text("Drop rejected");
+        return;
+    }
+
+    if (event.paths.size() != 1) {
+        append_log(window, log_store, "Failed: drag and drop accepts exactly one file or folder.");
+        window.set_status_text("Drop rejected");
+        return;
+    }
+
+    const auto inspected_path = util::inspect_input_path(event.paths.front());
+    if (!inspected_path.input_mode.has_value()) {
+        append_log(window, log_store, "Failed: " + inspected_path.error_message);
+        window.set_status_text("Drop rejected");
+        return;
+    }
+
+    window.set_input_mode_index(*inspected_path.input_mode == core::InputMode::File ? 0 : 1);
+    window.set_input_path(to_shared_string(inspected_path.normalized_path));
+    sync_input_preview(window, table_state);
+    append_log(window, log_store, "Status: input updated from drag and drop.");
+    window.set_status_text("Input updated");
 }
 
 std::string target_file_status_text(const core::RunFileUpdate &update)
@@ -495,6 +534,25 @@ int main()
     });
 
     sync_input_preview(*window, target_file_table);
-    window->run();
+    window->show();
+
+    std::string drop_error_message;
+    if (!util::install_native_file_drop_handler(
+            [weak_window = slint::ComponentWeakHandle(window), &log_store, &target_file_table](util::NativeDropEvent event) mutable {
+                const auto maybe_window = weak_window.lock();
+                if (!maybe_window.has_value()) {
+                    return;
+                }
+
+                auto window = *maybe_window;
+                apply_dropped_input_paths(*window, log_store, target_file_table, event);
+            },
+            drop_error_message)) {
+        append_log(*window, log_store, "Status: drag and drop unavailable (" + drop_error_message + ").");
+    } else {
+        append_log(*window, log_store, "Status: drag and drop is enabled for a single input file or folder.");
+    }
+
+    slint::run_event_loop();
     return 0;
 }
