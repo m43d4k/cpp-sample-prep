@@ -108,6 +108,9 @@ Sample rate converter designed by Aleksey Vaneev of Voxengo.
 ビルド後、ローカル起動用の `.app` は `build/SamplePrep.app` に生成される。
 ターミナルからは `./build/cpp_audio_converter` で起動する。
 
+バージョンを上げる場合は、`CMakeLists.txt` の `project(SamplePrep VERSION ...)` を更新してからビルドする。
+この値がアプリ表示、macOS バンドル情報、配布 ZIP 名の元になる。
+
 ### 依存ライブラリ込みの `.app` を生成
 配布前の動作確認に使える、依存ライブラリを同梱した `.app` を生成する。  
 `package_macos_release` はこの `.app` をもとにリリース用ファイルを作る。
@@ -125,13 +128,13 @@ Sample rate converter designed by Aleksey Vaneev of Voxengo.
 出力先:
 - `build/dist/release/SamplePrep.app`
 - `build/dist/release/README.txt`
-- `build/dist/release/SamplePrep-0.1.0-macOS-arm64.zip`
+- `build/dist/release/SamplePrep-<version>-macOS-arm64.zip`
 
 補足:
 - stage / package 時に `libsndfile` とその依存ライブラリを `.app` 内へ同梱する
 - bundle identifier の既定値は `com.example.sampleprep`
 - 必要なら configure 時に `-DSAMPLEPREP_BUNDLE_IDENTIFIER=com.your-domain.sampleprep` を指定して上書きできる
-- `build/dist/release/SamplePrep-0.1.0-macOS-arm64.zip` の中には `.app` と `README.txt` を含める
+- `build/dist/release/SamplePrep-<version>-macOS-arm64.zip` の中には `.app` と `README.txt` を含める
 
 ## 配布方針
 現時点の標準配布方針は以下とする。
