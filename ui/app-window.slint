@@ -96,6 +96,10 @@ export component MainWindow inherits Window {
     private property <length> block_spacing: 8px;
     private property <length> label_spacing: 2px;
     private property <length> field_action_spacing: 8px;
+    private property <length> input_table_spacing: 0px;
+    private property <length> input_section_lead_spacing: 4px;
+    private property <length> trailing_block_spacing: root.block_spacing - root.group_padding;
+    private property <length> file_rule_row_height: 48px;
     private property <length> inline_spacing: 8px;
     private property <length> action_spacing: 6px;
     private property <length> control_row_height: 22px;
@@ -165,16 +169,13 @@ export component MainWindow inherits Window {
             }
 
             SectionBox {
-                content_padding: 0px;
+                content_padding: root.group_padding;
                 VerticalBox {
-                    spacing: root.block_spacing;
+                    spacing: 0px;
                     alignment: start;
-                    padding-top: root.group_padding;
-                    padding-right: root.group_padding;
-                    padding-bottom: root.group_padding;
 
                     if root.target_file_rows.length > 0 : VerticalBox {
-                        padding-left: root.group_padding;
+                        padding-left: root.checkbox_align_offset;
 
                         Text {
                             text: root.target_files_summary + " Click a row to include or exclude it.";
@@ -182,67 +183,104 @@ export component MainWindow inherits Window {
                         }
                     }
 
-                    HorizontalBox {
-                        spacing: root.action_spacing;
-                        alignment: start;
-                        max-height: self.min-height;
+                    if root.target_file_rows.length > 0 : Rectangle {
+                        width: 100%;
+                        height: root.block_spacing;
+                        background: transparent;
+                    }
 
-                        Button {
-                            text: "Add files";
-                            enabled: !root.is_running;
-                            min-height: root.control_row_height;
-                            max-height: root.control_row_height;
-                            clicked => {
-                                root.request_pick_input_files();
+                    if root.target_file_rows.length == 0 : Rectangle {
+                        width: 100%;
+                        height: root.input_section_lead_spacing;
+                        background: transparent;
+                    }
+
+                    Rectangle {
+                        width: 100%;
+                        height: root.control_row_height;
+                        background: transparent;
+
+                        HorizontalLayout {
+                            x: 0;
+                            y: 0;
+                            width: parent.width;
+                            height: parent.height;
+                            padding-left: root.checkbox_align_offset;
+                            spacing: root.action_spacing;
+
+                            Button {
+                                text: "Add files";
+                                horizontal-stretch: 0;
+                                enabled: !root.is_running;
+                                min-height: root.control_row_height;
+                                max-height: root.control_row_height;
+                                clicked => {
+                                    root.request_pick_input_files();
+                                }
+                            }
+
+                            Button {
+                                text: "Add directory";
+                                horizontal-stretch: 0;
+                                enabled: !root.is_running;
+                                min-height: root.control_row_height;
+                                max-height: root.control_row_height;
+                                clicked => {
+                                    root.request_pick_input_directory();
+                                }
+                            }
+
+                            Button {
+                                text: "Select All";
+                                horizontal-stretch: 0;
+                                enabled: !root.is_running;
+                                min-height: root.control_row_height;
+                                max-height: root.control_row_height;
+                                clicked => {
+                                    root.set_all_target_file_selection(true);
+                                }
+                            }
+
+                            Button {
+                                text: "Deselect All";
+                                horizontal-stretch: 0;
+                                enabled: !root.is_running;
+                                min-height: root.control_row_height;
+                                max-height: root.control_row_height;
+                                clicked => {
+                                    root.set_all_target_file_selection(false);
+                                }
+                            }
+
+                            Button {
+                                text: "Clear";
+                                horizontal-stretch: 0;
+                                enabled: !root.is_running && root.input_path != "";
+                                min-height: root.control_row_height;
+                                max-height: root.control_row_height;
+                                clicked => {
+                                    root.input_path = "";
+                                    root.request_refresh_input_preview();
+                                }
+                            }
+
+                            Rectangle {
+                                background: transparent;
                             }
                         }
+                    }
 
-                        Button {
-                            text: "Add directory";
-                            enabled: !root.is_running;
-                            min-height: root.control_row_height;
-                            max-height: root.control_row_height;
-                            clicked => {
-                                root.request_pick_input_directory();
-                            }
-                        }
-
-                        Button {
-                            text: "Select All";
-                            enabled: !root.is_running;
-                            min-height: root.control_row_height;
-                            max-height: root.control_row_height;
-                            clicked => {
-                                root.set_all_target_file_selection(true);
-                            }
-                        }
-
-                        Button {
-                            text: "Deselect All";
-                            enabled: !root.is_running;
-                            min-height: root.control_row_height;
-                            max-height: root.control_row_height;
-                            clicked => {
-                                root.set_all_target_file_selection(false);
-                            }
-                        }
-
-                        Button {
-                            text: "Clear";
-                            enabled: !root.is_running && root.input_path != "";
-                            min-height: root.control_row_height;
-                            max-height: root.control_row_height;
-                            clicked => {
-                                root.input_path = "";
-                                root.request_refresh_input_preview();
-                            }
-                        }
+                    Rectangle {
+                        width: 100%;
+                        height: root.input_table_spacing;
+                        background: transparent;
                     }
 
                     VerticalBox {
                         spacing: root.block_spacing;
                         alignment: start;
-                        padding-left: root.group_padding;
+                        padding-left: root.checkbox_align_offset;
+                        padding-right: root.checkbox_align_offset;
 
                         Rectangle {
                             width: 100%;
@@ -448,7 +486,7 @@ export component MainWindow inherits Window {
 
                     Rectangle {
                         width: 100%;
-                        height: 44px;
+                        height: root.file_rule_row_height;
                         background: transparent;
 
                         HorizontalLayout {
@@ -501,6 +539,12 @@ export component MainWindow inherits Window {
                                 }
                             }
                         }
+                    }
+
+                    Rectangle {
+                        width: 100%;
+                        height: root.trailing_block_spacing;
+                        background: transparent;
                     }
                 }
             }
