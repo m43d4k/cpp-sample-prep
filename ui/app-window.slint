@@ -91,7 +91,6 @@ export component MainWindow inherits Window {
     private property <string> default_postfix_affix: "_converted";
     private property <length> page_padding: 6px;
     private property <length> group_padding: 6px;
-    private property <length> header_spacing: 2px;
     private property <length> section_spacing: 2px;
     private property <length> block_spacing: 8px;
     private property <length> label_spacing: 2px;
@@ -152,21 +151,6 @@ export component MainWindow inherits Window {
             padding: root.page_padding;
             spacing: root.section_spacing;
             min-width: max(720px, root.width - root.page_padding * 2);
-
-            VerticalBox {
-                spacing: root.header_spacing;
-                vertical-stretch: 0;
-
-                Text {
-                    text: "Audio Converter";
-                    font-size: 22px;
-                }
-
-                Text {
-                    text: "Single-window audio converter for mono and stereo files";
-                    color: #666666;
-                }
-            }
 
             SectionBox {
                 content_padding: root.group_padding;
