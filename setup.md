@@ -81,6 +81,47 @@ Homebrew を使う前提。
     cmake --preset local-llvm
     cmake --build --preset local-llvm
 
+### 6. `.app` の stage
+    cmake --build --preset local-llvm --target stage_macos_app
+
+出力先:
+- `build/dist/stage/cpp-audio-converter.app`
+
+### 7. 配布用 ZIP
+    cmake --build --preset local-llvm --target package_macos_zip
+
+出力先:
+- `build/dist/cpp-audio-converter-0.1.0-macOS-arm64.zip`
+
+補足:
+- `.app` の build 自体は `build/cpp-audio-converter.app`
+- `stage_macos_app` と `package_macos_zip` は `fixup_bundle` を使って `libsndfile` と従属 dylib をアプリ内へコピーする
+- bundle identifier を変える場合は configure 時に `-DAUDIO_CONVERTER_BUNDLE_IDENTIFIER=...` を付ける
+
+### 8. 未署名配布時の前提
+現時点の標準フローは未署名の `.app` / ZIP を配布する形とする。
+
+- Apple Silicon 向けの配布物は `stage_macos_app` または `package_macos_zip` で生成する
+- 初回起動時に macOS にブロックされた場合は `System Settings` → `Privacy & Security` → `Open Anyway` を案内する
+- これは Apple の公式案内に沿った運用とする
+
+Apple の案内:
+- https://support.apple.com/en-us/HT202491
+
+### 9. Optional: codesign / notarization
+Developer ID 配布へ切り替える場合は以下を別途用意する。
+
+- `Developer ID Application` 証明書
+- `xcrun notarytool` 用の keychain profile
+
+その場合のみ以下を使う。
+
+    CODESIGN_IDENTITY="Developer ID Application: Example" \
+    NOTARYTOOL_PROFILE="notary-profile" \
+    ./scripts/macos/sign_and_notarize.sh build/dist/stage/cpp-audio-converter.app
+
+`NOTARYTOOL_PROFILE` を省略すると、codesign と検証だけを行う。
+
 ---
 
 ## Slint の扱い
@@ -197,7 +238,9 @@ r8brain-free-src はリポジトリ内に同梱する。
 - CMake configure が通る
 - Slint が取得・生成される
 - `libsndfile` が解決される
-- 実行ファイルが生成される
+- `.app` が生成される
+- `stage_macos_app` が通る
+- `package_macos_zip` が通る
 
 ---
 

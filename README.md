@@ -102,6 +102,55 @@ Sample rate converter designed by Aleksey Vaneev of Voxengo.
     cmake --preset local-llvm
     cmake --build --preset local-llvm
 
+ビルド後、ローカル起動用の `.app` は `build/cpp-audio-converter.app` に生成される。
+
+### self-contained `.app` の stage
+    cmake --build --preset local-llvm --target stage_macos_app
+
+出力先:
+- `build/dist/stage/cpp-audio-converter.app`
+
+### 配布用 ZIP の生成
+    cmake --build --preset local-llvm --target package_macos_zip
+
+出力先:
+- `build/dist/cpp-audio-converter-0.1.0-macOS-arm64.zip`
+
+補足:
+- stage / package 時に `libsndfile` とその依存ライブラリを `.app` 内へ同梱する
+- bundle identifier の既定値は `com.example.cpp-audio-converter`
+- 必要なら configure 時に `-DAUDIO_CONVERTER_BUNDLE_IDENTIFIER=com.your-domain.cpp-audio-converter` を指定して上書きできる
+
+## 配布方針
+現時点の標準配布方針は以下とする。
+
+- Apple Silicon 向け
+- `.app` または ZIP を未署名のまま配布する
+- 初回起動時に macOS がブロックした場合は `System Settings` → `Privacy & Security` → `Open Anyway` を案内する
+
+### 初回起動の案内
+未署名のため、ダウンロードした環境では初回起動時に macOS の警告が出る場合がある。
+
+その場合は以下の手順で起動する。
+
+1. アプリを一度開いてブロックされることを確認する
+2. `System Settings` を開く
+3. `Privacy & Security` を開く
+4. 下部に表示される `Open Anyway` を押す
+5. 確認ダイアログで再度 `Open` を押す
+
+Apple の案内:
+- https://support.apple.com/en-us/HT202491
+
+### Optional: codesign / notarization
+Developer ID 配布を行う場合は補助スクリプトを使える。
+
+    CODESIGN_IDENTITY="Developer ID Application: Example" \
+    NOTARYTOOL_PROFILE="notary-profile" \
+    ./scripts/macos/sign_and_notarize.sh build/dist/stage/cpp-audio-converter.app
+
+これは現時点の標準手順ではない。
+
 ## 文書
 - `spec.md`
   - プロダクト仕様

@@ -1,0 +1,30 @@
+include(BundleUtilities)
+
+set(source_app "@CMAKE_BINARY_DIR@/@AUDIO_CONVERTER_APP_NAME@.app")
+set(stage_root "@CMAKE_BINARY_DIR@/dist/stage")
+set(staged_app "${stage_root}/@AUDIO_CONVERTER_APP_NAME@.app")
+set(zip_path "@CMAKE_BINARY_DIR@/dist/@AUDIO_CONVERTER_APP_NAME@-@PROJECT_VERSION@-macOS-arm64.zip")
+set(search_dirs "@AUDIO_CONVERTER_BUNDLE_SEARCH_DIRS@")
+
+if(NOT EXISTS "${source_app}")
+    message(FATAL_ERROR "Built app bundle not found: ${source_app}")
+endif()
+
+file(REMOVE_RECURSE "${stage_root}")
+file(MAKE_DIRECTORY "${stage_root}")
+file(COPY "${source_app}" DESTINATION "${stage_root}")
+
+set(BU_CHMOD_BUNDLE_ITEMS ON)
+fixup_bundle("${staged_app}" "" "${search_dirs}")
+verify_app("${staged_app}")
+
+if(AUDIO_CONVERTER_CREATE_ZIP)
+    file(REMOVE "${zip_path}")
+    execute_process(
+        COMMAND /usr/bin/ditto -c -k --norsrc --keepParent "${staged_app}" "${zip_path}"
+        RESULT_VARIABLE zip_result
+    )
+    if(NOT zip_result EQUAL 0)
+        message(FATAL_ERROR "Failed to create ZIP archive: ${zip_path}")
+    endif()
+endif()
