@@ -113,6 +113,7 @@ void test_build_settings()
     assert(result.errors.empty());
     assert(result.settings.has_value());
     assert(result.settings->file_name_affix == core::kDefaultPrefixAffix);
+    assert(result.settings->output_format == core::OutputFormat::Wav);
     assert(core::default_file_name_affix(core::FileNameRule::Prefix) == core::kDefaultPrefixAffix);
     assert(core::default_file_name_affix(core::FileNameRule::Postfix) == core::kDefaultPostfixAffix);
 
@@ -142,6 +143,19 @@ void test_build_settings()
         .bit_depth_index = 1,
     });
     assert(!invalid.errors.empty());
+
+    const auto missing_explicit = core::build_settings({
+        .input_path = "1 file selected",
+        .selected_input_paths = { dir / "missing.wav" },
+        .overwrite_originals = false,
+        .output_directory = output_dir.string(),
+        .file_name_rule_index = 0,
+        .sample_rate_index = 1,
+        .output_format_index = 1,
+        .bit_depth_index = 1,
+    });
+    assert(!missing_explicit.errors.empty());
+    assert(missing_explicit.errors.front() == "Selected input path does not exist.");
 }
 
 void test_same_condition_skip()
@@ -326,6 +340,17 @@ void test_input_preview()
     assert(single_file_preview.rows.size() == 1);
     assert(single_file_preview.rows[0].output_name == "b-song.aiff");
 
+    const auto default_affix_preview = core::preview_input_files({
+        .input_path = (input_dir / "b-song.wav").string(),
+        .overwrite_originals = false,
+        .output_directory = (dir / "output").string(),
+        .file_name_rule_index = 0,
+        .output_format_index = 0,
+    });
+    assert(default_affix_preview.errors.empty());
+    assert(default_affix_preview.rows.size() == 1);
+    assert(default_affix_preview.rows[0].output_name == "converted_b-song.wav");
+
     const auto unsupported_file_preview = core::preview_input_files({
         .input_path = (input_dir / "a-notes.txt").string(),
         .overwrite_originals = false,
@@ -353,6 +378,17 @@ void test_input_preview()
     assert(explicit_files_preview.rows.size() == 2);
     assert(explicit_files_preview.rows[0].output_path.find("output") != std::string::npos);
     assert(explicit_files_preview.rows[0].output_path.find("nested") == std::string::npos);
+
+    const auto missing_explicit_preview = core::preview_input_files({
+        .input_path = "1 file selected",
+        .selected_input_paths = { input_dir / "missing.wav" },
+        .overwrite_originals = false,
+        .output_directory = (dir / "output").string(),
+        .file_name_rule_index = 0,
+        .output_format_index = 0,
+    });
+    assert(!missing_explicit_preview.errors.empty());
+    assert(missing_explicit_preview.errors.front() == "Selected input path does not exist.");
 }
 
 void test_overwrite_extension_change()
@@ -455,6 +491,48 @@ void test_supported_input_format_conversion()
     }
 }
 
+void test_duplicate_selected_input_paths_emit_stable_indices()
+{
+    const auto dir = make_temp_dir();
+    const auto input_dir = dir / "input";
+    const auto output_dir = dir / "output";
+    fs::create_directories(input_dir);
+    fs::create_directories(output_dir);
+
+    const auto input_file = input_dir / "song.wav";
+    write_audio_file(input_file, 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256, 2);
+
+    const core::ConversionSettings settings {
+        .input_path = input_file.string(),
+        .input_mode = core::InputMode::File,
+        .selected_input_paths = { input_file, input_file },
+        .output_mode = core::OutputMode::WriteNewFiles,
+        .output_directory = output_dir.string(),
+        .file_name_rule = core::FileNameRule::Prefix,
+        .file_name_affix = "converted_",
+        .sample_rate = 44100,
+        .output_format = core::OutputFormat::Wav,
+        .bit_depth = core::BitDepth::Pcm16,
+    };
+
+    std::vector<std::size_t> indices;
+    std::vector<core::RunFileStatus> statuses;
+    const auto result = core::run_conversion(settings, {
+        .on_file_complete = [&indices, &statuses](core::RunFileUpdate update) {
+            indices.push_back(update.index);
+            statuses.push_back(update.status);
+        },
+    });
+
+    assert(result.total_files == 2);
+    assert(result.success_count == 1);
+    assert(result.skipped_count == 1);
+    assert(indices == std::vector<std::size_t>({ 0, 1 }));
+    assert(statuses.size() == 2);
+    assert(statuses[0] == core::RunFileStatus::Success);
+    assert(statuses[1] == core::RunFileStatus::Skipped);
+}
+
 } // namespace
 
 int main()
@@ -469,5 +547,6 @@ int main()
     test_overwrite_extension_change();
     test_mono_conversion();
     test_supported_input_format_conversion();
+    test_duplicate_selected_input_paths_emit_stable_indices();
     return 0;
 }

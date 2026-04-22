@@ -13,6 +13,17 @@ namespace audio_converter::core {
 
 namespace {
 
+struct RunItem {
+    std::size_t index { 0 };
+    std::filesystem::path input_path;
+    std::filesystem::path final_output_path;
+};
+
+struct FileOutcome {
+    RunFileStatus status { RunFileStatus::Skipped };
+    std::string detail;
+};
+
 void emit_log(const RunCallbacks &callbacks, std::string line)
 {
     if (callbacks.on_log_line) {
@@ -46,6 +57,17 @@ std::string display_path(const std::filesystem::path &path)
     return util::to_display_string(path);
 }
 
+void emit_outcome_update(const RunCallbacks &callbacks, const RunItem &item, const FileOutcome &outcome)
+{
+    emit_file_complete(callbacks, {
+        .index = item.index,
+        .input_path = item.input_path,
+        .output_path = item.final_output_path,
+        .status = outcome.status,
+        .detail = outcome.detail,
+    });
+}
+
 bool ensure_output_parent_directory(const std::filesystem::path &path, std::string &error_message)
 {
     if (path.empty()) {
@@ -59,6 +81,128 @@ bool ensure_output_parent_directory(const std::filesystem::path &path, std::stri
         return false;
     }
     return true;
+}
+
+RunItem make_run_item(std::size_t index, const std::filesystem::path &input, const ConversionSettings &settings)
+{
+    return {
+        .index = index,
+        .input_path = input,
+        .final_output_path = settings.output_mode == OutputMode::WriteNewFiles
+            ? util::build_output_path(input, settings)
+            : util::replacement_output_path(input, settings.output_format),
+    };
+}
+
+std::optional<FileOutcome> preflight_run_item(const RunItem &item, const ConversionSettings &settings)
+{
+    if (settings.output_mode == OutputMode::WriteNewFiles && std::filesystem::exists(item.final_output_path)) {
+        return FileOutcome {
+            .status = RunFileStatus::Skipped,
+            .detail = "output file already exists: " + display_path(item.final_output_path),
+        };
+    }
+
+    if (settings.output_mode == OutputMode::OverwriteOriginals
+        && item.final_output_path != item.input_path
+        && std::filesystem::exists(item.final_output_path)) {
+        return FileOutcome {
+            .status = RunFileStatus::Skipped,
+            .detail = "replacement path already exists: " + display_path(item.final_output_path),
+        };
+    }
+
+    std::string output_directory_error;
+    if (!ensure_output_parent_directory(item.final_output_path.parent_path(), output_directory_error)) {
+        return FileOutcome {
+            .status = RunFileStatus::Failed,
+            .detail = std::move(output_directory_error),
+        };
+    }
+
+    return std::nullopt;
+}
+
+FileOutcome process_run_item(const RunItem &item, const ConversionSettings &settings)
+{
+    const auto temp_output_path = util::make_temporary_output_path(item.final_output_path);
+    util::ScopedTempFile scoped_temp_output(temp_output_path);
+    const audio::ProcessFileRequest request {
+        .input_path = item.input_path,
+        .output_path = temp_output_path,
+        .output_format = settings.output_format,
+        .sample_rate = settings.sample_rate,
+        .bit_depth = settings.bit_depth,
+    };
+    const auto file_result = audio::convert_audio_file(request);
+
+    if (file_result.status == audio::ProcessStatus::Success) {
+        std::string commit_error;
+        const bool committed = settings.output_mode == OutputMode::OverwriteOriginals
+            ? util::commit_overwrite(item.input_path, temp_output_path, item.final_output_path, commit_error)
+            : util::commit_new_file(temp_output_path, item.final_output_path, commit_error);
+        if (committed) {
+            scoped_temp_output.disarm();
+            return {
+                .status = RunFileStatus::Success,
+                .detail = {},
+            };
+        }
+
+        return {
+            .status = RunFileStatus::Failed,
+            .detail = std::move(commit_error),
+        };
+    }
+
+    if (file_result.status == audio::ProcessStatus::Skipped) {
+        return {
+            .status = RunFileStatus::Skipped,
+            .detail = std::move(file_result.detail),
+        };
+    }
+
+    return {
+        .status = RunFileStatus::Failed,
+        .detail = std::move(file_result.detail),
+    };
+}
+
+void record_file_outcome(
+    RunConversionResult &result,
+    const RunCallbacks &callbacks,
+    const RunItem &item,
+    const FileOutcome &outcome)
+{
+    switch (outcome.status) {
+    case RunFileStatus::Success:
+        ++result.success_count;
+        emit_log(callbacks, "Success: " + display_path(item.input_path) + " -> " + display_path(item.final_output_path));
+        break;
+    case RunFileStatus::Skipped:
+        ++result.skipped_count;
+        emit_log(callbacks, "Skipped: " + display_path(item.input_path) + " (" + outcome.detail + ")");
+        break;
+    case RunFileStatus::Failed:
+        ++result.failed_count;
+        emit_log(callbacks, "Failed: " + display_path(item.input_path) + " (" + outcome.detail + ")");
+        break;
+    }
+
+    emit_outcome_update(callbacks, item, outcome);
+}
+
+void update_progress(
+    RunConversionResult &result,
+    const RunCallbacks &callbacks,
+    int completed_files)
+{
+    const auto progress_value = static_cast<float>(completed_files) / static_cast<float>(result.total_files);
+    result.progress_value = progress_value;
+    result.status_text = completed_files < result.total_files
+        ? "Running " + std::to_string(completed_files) + "/" + std::to_string(result.total_files)
+        : make_summary(result);
+    emit_progress(callbacks, result.progress_value, result.status_text);
 }
 
 } // namespace
@@ -79,100 +223,13 @@ RunConversionResult run_conversion(const ConversionSettings &settings, const Run
     emit_progress(callbacks, 0.0f, "Running 0/" + std::to_string(result.total_files));
 
     for (std::size_t index = 0; index < inputs.size(); ++index) {
-        const auto &input = inputs[index];
-        const auto final_output_path = settings.output_mode == OutputMode::WriteNewFiles
-            ? util::build_output_path(input, settings)
-            : util::replacement_output_path(input, settings.output_format);
-        const auto emit_row_update = [&](RunFileStatus status, std::string detail) {
-            emit_file_complete(callbacks, {
-                .index = index,
-                .input_path = input,
-                .output_path = final_output_path,
-                .status = status,
-                .detail = std::move(detail),
-            });
-        };
-
-        if (settings.output_mode == OutputMode::WriteNewFiles && std::filesystem::exists(final_output_path)) {
-            ++result.skipped_count;
-            const std::string detail = "output file already exists: " + display_path(final_output_path);
-            emit_log(callbacks, "Skipped: " + display_path(input) + " (" + detail + ")");
-            emit_row_update(RunFileStatus::Skipped, detail);
-        } else if (
-            settings.output_mode == OutputMode::OverwriteOriginals
-            && final_output_path != input
-            && std::filesystem::exists(final_output_path)) {
-            ++result.skipped_count;
-            const std::string detail = "replacement path already exists: " + display_path(final_output_path);
-            emit_log(callbacks, "Skipped: " + display_path(input) + " (" + detail + ")");
-            emit_row_update(RunFileStatus::Skipped, detail);
-        } else {
-            std::string output_directory_error;
-            if (!ensure_output_parent_directory(final_output_path.parent_path(), output_directory_error)) {
-                ++result.failed_count;
-                emit_log(callbacks, "Failed: " + display_path(input) + " (" + output_directory_error + ")");
-                emit_row_update(RunFileStatus::Failed, output_directory_error);
-                const auto completed = static_cast<int>(index + 1);
-                const auto progress_value = static_cast<float>(completed) / static_cast<float>(result.total_files);
-                const auto running_status = completed < result.total_files
-                    ? "Running " + std::to_string(completed) + "/" + std::to_string(result.total_files)
-                    : make_summary(result);
-                result.progress_value = progress_value;
-                result.status_text = running_status;
-                emit_progress(callbacks, progress_value, running_status);
-                continue;
-            }
-
-            const auto temp_output_path = util::make_temporary_output_path(final_output_path);
-            util::ScopedTempFile scoped_temp_output(temp_output_path);
-            const audio::ProcessFileRequest request {
-                .input_path = input,
-                .output_path = temp_output_path,
-                .output_format = settings.output_format,
-                .sample_rate = settings.sample_rate,
-                .bit_depth = settings.bit_depth,
-            };
-            const auto file_result = audio::convert_audio_file(request);
-
-            if (file_result.status == audio::ProcessStatus::Success) {
-                std::string commit_error;
-                bool committed = false;
-
-                if (settings.output_mode == OutputMode::OverwriteOriginals) {
-                    committed = util::commit_overwrite(input, temp_output_path, final_output_path, commit_error);
-                } else {
-                    committed = util::commit_new_file(temp_output_path, final_output_path, commit_error);
-                }
-
-                if (committed) {
-                    scoped_temp_output.disarm();
-                    ++result.success_count;
-                    emit_log(callbacks, "Success: " + display_path(input) + " -> " + display_path(final_output_path));
-                    emit_row_update(RunFileStatus::Success, {});
-                } else {
-                    ++result.failed_count;
-                    emit_log(callbacks, "Failed: " + display_path(input) + " (" + commit_error + ")");
-                    emit_row_update(RunFileStatus::Failed, commit_error);
-                }
-            } else if (file_result.status == audio::ProcessStatus::Skipped) {
-                ++result.skipped_count;
-                emit_log(callbacks, "Skipped: " + display_path(input) + " (" + file_result.detail + ")");
-                emit_row_update(RunFileStatus::Skipped, file_result.detail);
-            } else {
-                ++result.failed_count;
-                emit_log(callbacks, "Failed: " + display_path(input) + " (" + file_result.detail + ")");
-                emit_row_update(RunFileStatus::Failed, file_result.detail);
-            }
-        }
-
-        const auto completed = static_cast<int>(index + 1);
-        const auto progress_value = static_cast<float>(completed) / static_cast<float>(result.total_files);
-        const auto running_status = completed < result.total_files
-            ? "Running " + std::to_string(completed) + "/" + std::to_string(result.total_files)
-            : make_summary(result);
-        result.progress_value = progress_value;
-        result.status_text = running_status;
-        emit_progress(callbacks, progress_value, running_status);
+        const auto item = make_run_item(index, inputs[index], settings);
+        const auto preflight_outcome = preflight_run_item(item, settings);
+        const auto outcome = preflight_outcome.has_value()
+            ? *preflight_outcome
+            : process_run_item(item, settings);
+        record_file_outcome(result, callbacks, item, outcome);
+        update_progress(result, callbacks, static_cast<int>(index + 1));
     }
 
     result.status_text = make_summary(result);

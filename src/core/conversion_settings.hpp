@@ -79,6 +79,29 @@ struct BuildSettingsResult {
     std::vector<std::string> errors;
 };
 
+struct ResolvedInputSelection {
+    std::string input_path;
+    InputMode input_mode { InputMode::File };
+    std::vector<std::filesystem::path> selected_input_paths;
+};
+
+struct ResolveInputSelectionResult {
+    std::optional<ResolvedInputSelection> selection;
+    std::vector<std::string> errors;
+};
+
+std::optional<FileNameRule> file_name_rule_from_index(int index);
+std::optional<int> sample_rate_from_index(int index);
+std::optional<OutputFormat> output_format_from_index(int index);
+std::optional<BitDepth> bit_depth_from_index(int index);
+std::string resolve_file_name_affix(
+    FileNameRule value,
+    std::string_view requested_affix,
+    bool use_default_when_empty = true);
+ResolveInputSelectionResult resolve_input_selection(
+    std::string_view input_path,
+    const std::vector<std::filesystem::path> &selected_input_paths,
+    bool allow_empty_input = false);
 BuildSettingsResult build_settings(const UiSettingsInput &input);
 
 std::string to_string(InputMode value);

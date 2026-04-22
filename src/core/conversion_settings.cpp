@@ -44,7 +44,138 @@ std::optional<int> value_from_index(const std::array<int, N> &values, int index)
     return values[static_cast<std::size_t>(index)];
 }
 
+std::optional<std::string> validate_selected_input_path(const std::filesystem::path &selected_path)
+{
+    std::error_code error;
+    const auto exists = std::filesystem::exists(selected_path, error);
+    if (error) {
+        return "Failed to inspect input path.";
+    }
+    if (!exists) {
+        return "Selected input path does not exist.";
+    }
+
+    const auto is_regular_file = std::filesystem::is_regular_file(selected_path, error);
+    if (error) {
+        return "Failed to inspect input path.";
+    }
+    if (!is_regular_file) {
+        return "Selected input path must be a file.";
+    }
+
+    return std::nullopt;
+}
+
+ResolveInputSelectionResult resolve_single_input_path(std::string_view input_path)
+{
+    ResolveInputSelectionResult result;
+    const std::filesystem::path path(input_path);
+
+    std::error_code error;
+    const auto exists = std::filesystem::exists(path, error);
+    if (error) {
+        result.errors.emplace_back("Failed to inspect input path.");
+        return result;
+    }
+    if (!exists) {
+        result.errors.emplace_back("Input path does not exist.");
+        return result;
+    }
+
+    const auto is_regular_file = std::filesystem::is_regular_file(path, error);
+    if (error) {
+        result.errors.emplace_back("Failed to inspect input path.");
+        return result;
+    }
+
+    const auto is_directory = std::filesystem::is_directory(path, error);
+    if (error) {
+        result.errors.emplace_back("Failed to inspect input path.");
+        return result;
+    }
+
+    ResolvedInputSelection selection {
+        .input_path = std::string(input_path),
+    };
+    if (is_regular_file) {
+        selection.input_mode = InputMode::File;
+    } else if (is_directory) {
+        selection.input_mode = InputMode::Directory;
+    } else {
+        result.errors.emplace_back("Input path must be a file or directory.");
+        return result;
+    }
+
+    result.selection = std::move(selection);
+    return result;
+}
+
 } // namespace
+
+std::optional<FileNameRule> file_name_rule_from_index(int index)
+{
+    return value_from_index(kFileNameRules, index);
+}
+
+std::optional<int> sample_rate_from_index(int index)
+{
+    return value_from_index(kSampleRates, index);
+}
+
+std::optional<OutputFormat> output_format_from_index(int index)
+{
+    return value_from_index(kOutputFormats, index);
+}
+
+std::optional<BitDepth> bit_depth_from_index(int index)
+{
+    return value_from_index(kBitDepths, index);
+}
+
+std::string resolve_file_name_affix(
+    FileNameRule value,
+    std::string_view requested_affix,
+    bool use_default_when_empty)
+{
+    if (!requested_affix.empty() || !use_default_when_empty) {
+        return std::string(requested_affix);
+    }
+    return std::string(default_file_name_affix(value));
+}
+
+ResolveInputSelectionResult resolve_input_selection(
+    std::string_view input_path,
+    const std::vector<std::filesystem::path> &selected_input_paths,
+    bool allow_empty_input)
+{
+    ResolveInputSelectionResult result;
+    if (!selected_input_paths.empty()) {
+        ResolvedInputSelection selection {
+            .input_path = selected_input_paths.front().lexically_normal().string(),
+            .input_mode = InputMode::File,
+            .selected_input_paths = selected_input_paths,
+        };
+
+        for (const auto &selected_path : selected_input_paths) {
+            if (const auto error = validate_selected_input_path(selected_path); error.has_value()) {
+                result.errors.emplace_back(*error);
+                return result;
+            }
+        }
+
+        result.selection = std::move(selection);
+        return result;
+    }
+
+    if (input_path.empty()) {
+        if (!allow_empty_input) {
+            result.errors.emplace_back("Input path is required.");
+        }
+        return result;
+    }
+
+    return resolve_single_input_path(input_path);
+}
 
 BuildSettingsResult build_settings(const UiSettingsInput &input)
 {
@@ -52,63 +183,42 @@ BuildSettingsResult build_settings(const UiSettingsInput &input)
     ConversionSettings settings;
 
     settings.input_path = input.input_path;
-    settings.selected_input_paths = input.selected_input_paths;
     settings.output_mode = input.overwrite_originals ? OutputMode::OverwriteOriginals : OutputMode::WriteNewFiles;
     settings.output_directory = input.output_directory;
     settings.file_name_affix = input.file_name_affix;
 
-    if (!settings.selected_input_paths.empty()) {
-        settings.input_mode = InputMode::File;
-        settings.input_path = settings.selected_input_paths.front().lexically_normal().string();
-
-        for (const auto &selected_path : settings.selected_input_paths) {
-            if (!std::filesystem::exists(selected_path)) {
-                result.errors.emplace_back("Selected input path does not exist.");
-                break;
-            }
-            if (!std::filesystem::is_regular_file(selected_path)) {
-                result.errors.emplace_back("Selected input path must be a file.");
-                break;
-            }
-        }
-    } else {
-        const std::filesystem::path input_path(input.input_path);
-
-        if (settings.input_path.empty()) {
-            result.errors.emplace_back("Input path is required.");
-        } else if (!std::filesystem::exists(input_path)) {
-            result.errors.emplace_back("Input path does not exist.");
-        } else if (std::filesystem::is_regular_file(input_path)) {
-            settings.input_mode = InputMode::File;
-        } else if (std::filesystem::is_directory(input_path)) {
-            settings.input_mode = InputMode::Directory;
-        } else {
-            result.errors.emplace_back("Input path must be a file or directory.");
-        }
+    const auto input_selection = resolve_input_selection(input.input_path, input.selected_input_paths);
+    if (!input_selection.errors.empty()) {
+        result.errors.insert(result.errors.end(), input_selection.errors.begin(), input_selection.errors.end());
+    } else if (input_selection.selection.has_value()) {
+        settings.input_path = input_selection.selection->input_path;
+        settings.input_mode = input_selection.selection->input_mode;
+        settings.selected_input_paths = input_selection.selection->selected_input_paths;
     }
 
-    const auto file_name_rule = value_from_index(kFileNameRules, input.file_name_rule_index);
+    const auto file_name_rule = file_name_rule_from_index(input.file_name_rule_index);
     if (!file_name_rule.has_value()) {
         result.errors.emplace_back("File name rule selection is invalid.");
     } else {
         settings.file_name_rule = *file_name_rule;
+        settings.file_name_affix = resolve_file_name_affix(*file_name_rule, input.file_name_affix, false);
     }
 
-    const auto sample_rate = value_from_index(kSampleRates, input.sample_rate_index);
+    const auto sample_rate = sample_rate_from_index(input.sample_rate_index);
     if (!sample_rate.has_value()) {
         result.errors.emplace_back("Sample rate selection is invalid.");
     } else {
         settings.sample_rate = *sample_rate;
     }
 
-    const auto output_format = value_from_index(kOutputFormats, input.output_format_index);
+    const auto output_format = output_format_from_index(input.output_format_index);
     if (!output_format.has_value()) {
         result.errors.emplace_back("Output format selection is invalid.");
     } else {
         settings.output_format = *output_format;
     }
 
-    const auto bit_depth = value_from_index(kBitDepths, input.bit_depth_index);
+    const auto bit_depth = bit_depth_from_index(input.bit_depth_index);
     if (!bit_depth.has_value()) {
         result.errors.emplace_back("Bit depth selection is invalid.");
     } else {

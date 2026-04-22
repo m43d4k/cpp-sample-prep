@@ -274,17 +274,12 @@ void update_target_file_status(
     if (!table_state.model) {
         return;
     }
-
-    const auto input_path = util::to_display_string(update.input_path);
-    const auto row_it = std::find_if(table_state.rows.begin(), table_state.rows.end(), [&](const auto &candidate) {
-        return candidate.source_path == input_path;
-    });
-    if (row_it == table_state.rows.end()) {
+    if (update.index >= table_state.rows.size()) {
         return;
     }
 
-    const auto row_index = static_cast<std::size_t>(std::distance(table_state.rows.begin(), row_it));
-    auto &row = *row_it;
+    const auto row_index = update.index;
+    auto &row = table_state.rows[row_index];
     row.status = target_file_status_text(update);
     row.output_name = update.output_path.empty() ? row.output_name : update.output_path.filename().string();
     row.output_path = update.output_path.empty()
