@@ -120,7 +120,7 @@ export component MainWindow inherits Window {
         + root.column_output_width;
     private property <length> column_output_path_min_width: 140px;
     private property <bool> output_directory_locked: root.overwrite_originals || root.use_source_file_directory;
-    private property <string> creator_name: "Warf Arcana";
+    private property <string> creator_name: "Warf ARCANA";
     private property <string> creator_url: "https://warfarcana.com/";
 
     in-out property <string> input_path;
@@ -147,6 +147,7 @@ export component MainWindow inherits Window {
     callback request_pick_input_files();
     callback request_pick_input_directory();
     callback request_pick_output_directory();
+    callback request_open_url(string);
     callback set_target_file_selection(string, bool);
     callback set_all_target_file_selection(bool);
 
@@ -726,7 +727,7 @@ export component MainWindow inherits Window {
                 alignment: start;
 
                 Text {
-                    text: "About SamplePrep";
+                    text: "SamplePrep";
                     font-size: 18px;
                     font-weight: 600;
                 }
@@ -739,9 +740,38 @@ export component MainWindow inherits Window {
                     text: "Created by: " + root.creator_name;
                 }
 
-                Text {
-                    text: root.creator_url;
-                    color: Palette.selection-background;
+                Rectangle {
+                    background: transparent;
+                    width: 100%;
+                    height: creator-link.preferred-height;
+
+                    creator-link := Text {
+                        x: 0px;
+                        y: 0px;
+                        width: self.preferred-width;
+                        text: root.creator_url;
+                        horizontal-alignment: left;
+                        color: creator-link-area.has-hover ? Palette.selection-background.brighter(0.2) : Palette.selection-background;
+                    }
+
+                    Rectangle {
+                        x: creator-link.x;
+                        y: creator-link.y + creator-link.preferred-height - 1px;
+                        width: creator-link.preferred-width;
+                        height: 1px;
+                        background: creator-link.color;
+                    }
+
+                    creator-link-area := TouchArea {
+                        x: 0px;
+                        y: 0px;
+                        width: creator-link.preferred-width;
+                        height: creator-link.preferred-height;
+                        mouse-cursor: pointer;
+                        clicked => {
+                            root.request_open_url(root.creator_url);
+                        }
+                    }
                 }
 
                 Rectangle {

@@ -46,6 +46,7 @@ add_library(sampleprep_lib STATIC
     src/util/native_file_dialog.cpp
     src/util/path_utils.cpp
     src/util/temp_file.cpp
+    src/util/url_launcher.cpp
 )
 
 if(APPLE)

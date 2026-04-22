@@ -6,6 +6,7 @@
 #include "util/native_drop_target.hpp"
 #include "util/native_file_dialog.hpp"
 #include "util/path_utils.hpp"
+#include "util/url_launcher.hpp"
 
 #include <slint.h>
 
@@ -470,6 +471,21 @@ int main()
             window->set_output_directory(to_shared_string(paths.front()));
             sync_input_preview(*window, target_file_table, input_selection);
         });
+    });
+
+    window->on_request_open_url([weak_window = slint::ComponentWeakHandle(window), &log_store](
+                                    const slint::SharedString &url) {
+        const auto maybe_window = weak_window.lock();
+        if (!maybe_window.has_value()) {
+            return;
+        }
+
+        auto window = *maybe_window;
+        const auto result = util::open_url(std::string(url));
+        if (!result.success) {
+            append_log(*window, log_store, "Failed: " + result.error_message);
+            window->set_status_text("Link open failed");
+        }
     });
 
     window->on_request_refresh_input_preview(
