@@ -12,7 +12,9 @@
 
 対象OS:
 - macOS
-- Linux
+
+補足:
+- Linux 対応はひとまず見送る
 
 ---
 
@@ -81,62 +83,12 @@ Homebrew を使う前提。
 
 ---
 
-## Linux
-
-### 1. 必要ツールを入れる
-ディストリビューションごとの方法で以下を導入する。
-
-- C++20 対応コンパイラ
-  - `g++` または `clang++`
-- `cmake`
-- `ninja`
-- `rustc` / `cargo`
-- `libsndfile` の開発パッケージ
-- `pkg-config`
-- `git`
-
-ネイティブのファイル / フォルダ選択ダイアログを使う場合は、以下のいずれかがあるとよい。
-
-- `zenity`
-- `kdialog`
-
-### 2. 確認
-gcc 系を使う場合:
-
-    g++ --version
-
-clang 系を使う場合:
-
-    clang++ --version
-
-共通:
-
-    cmake --version
-    ninja --version
-    cargo --version
-    pkg-config --modversion sndfile
-
-### 3. configure / build
-gcc を使う例:
-
-    cmake -S . -B build -G Ninja
-    cmake --build build
-
-clang を使う例:
-
-    CC=clang CXX=clang++ cmake -S . -B build -G Ninja
-    cmake --build build
-
-必要であれば Linux でも `CMakeUserPresets.json` を使ってローカルプリセット化してよい。
-
----
-
 ## Slint の扱い
 このプロジェクトでは、Slint は CMake の `FetchContent` で取り込む前提とする。
 
 補足:
 - Slint をソースからビルドするため、`cargo` / `rustc` が必要
-- macOS では `brew install rust`、Linux ではディストリビューション標準の Rust パッケージまたは `rustup` を使う
+- macOS では `brew install rust` を使う
 
 方針:
 - まずは外部に事前インストールしない
@@ -238,16 +190,8 @@ r8brain-free-src はリポジトリ内に同梱する。
 ### 1. configure
     cmake --preset local-llvm
 
-または Linux:
-
-    cmake -S . -B build -G Ninja
-
 ### 2. build
     cmake --build --preset local-llvm
-
-または:
-
-    cmake --build build
 
 ### 3. 確認項目
 - CMake configure が通る
@@ -265,3 +209,4 @@ r8brain-free-src はリポジトリ内に同梱する。
 - ビルドは CMake + Ninja
 - macOS は Homebrew 版 LLVM をローカルプリセットで使用してよい
 - Python / Node.js は必須にしない
+- Linux 対応は後続タスクとして扱う

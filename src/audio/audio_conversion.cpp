@@ -250,9 +250,6 @@ ProcessFileResult convert_audio_file(const ProcessFileRequest &request)
         return open_error;
     }
 
-    if (!output_format_from_sndfile_format(input_info.format).has_value()) {
-        return make_skipped("unsupported input format");
-    }
     if (!is_supported_channel_count(input_info.channels)) {
         return make_skipped("only mono and stereo input are supported");
     }

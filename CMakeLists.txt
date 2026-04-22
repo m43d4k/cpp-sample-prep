@@ -68,6 +68,7 @@ if(BUILD_TESTING)
     add_executable(audio_converter_tests
         tests/audio_converter_tests.cpp
     )
+    target_compile_definitions(audio_converter_tests PRIVATE AUDIO_CONVERTER_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_link_libraries(audio_converter_tests PRIVATE audio_converter_lib)
     add_test(NAME audio_converter_tests COMMAND audio_converter_tests)
 endif()

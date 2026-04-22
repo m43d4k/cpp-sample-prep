@@ -13,6 +13,8 @@
 #include <fstream>
 #include <random>
 #include <string>
+#include <string_view>
+#include <utility>
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -21,6 +23,10 @@ namespace audio = audio_converter::audio;
 namespace util = audio_converter::util;
 
 namespace {
+
+#ifndef AUDIO_CONVERTER_SOURCE_DIR
+#error "AUDIO_CONVERTER_SOURCE_DIR must be defined for fixture-based tests."
+#endif
 
 fs::path make_temp_dir()
 {
@@ -35,12 +41,31 @@ fs::path make_temp_dir()
     return dir;
 }
 
-void write_wave(const fs::path &path, int sample_rate, int format, int frame_count, int channels)
+fs::path fixture_path(std::string_view name)
+{
+    return fs::path(AUDIO_CONVERTER_SOURCE_DIR) / "tests" / "fixtures" / name;
+}
+
+void copy_fixture_file(std::string_view name, const fs::path &destination)
+{
+    std::error_code error_code;
+    const auto copied = fs::copy_file(
+        fixture_path(name),
+        destination,
+        fs::copy_options::overwrite_existing,
+        error_code);
+    assert(copied);
+    assert(!error_code);
+}
+
+void write_audio_file(const fs::path &path, int sample_rate, int format, int frame_count, int channels)
 {
     SF_INFO info {};
     info.channels = channels;
     info.samplerate = sample_rate;
     info.format = format;
+
+    assert(sf_format_check(&info) != 0);
 
     SNDFILE *file = sf_open(path.c_str(), SFM_WRITE, &info);
     assert(file != nullptr);
@@ -74,7 +99,7 @@ void test_build_settings()
     const auto input_file = dir / "input.wav";
     const auto output_dir = dir / "out";
     fs::create_directories(output_dir);
-    write_wave(input_file, 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 128, 2);
+    write_audio_file(input_file, 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 128, 2);
 
     const auto result = core::build_settings({
         .input_path = input_file.string(),
@@ -123,7 +148,7 @@ void test_same_condition_skip()
 {
     const auto dir = make_temp_dir();
     const auto input_file = dir / "input.wav";
-    write_wave(input_file, 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 128, 2);
+    write_audio_file(input_file, 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 128, 2);
 
     const auto result = audio::convert_audio_file({
         .input_path = input_file,
@@ -153,7 +178,7 @@ void test_inspect_input_path()
     const auto input_dir = dir / "input";
     const auto input_file = input_dir / "clip.wav";
     fs::create_directories(input_dir);
-    write_wave(input_file, 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 128, 2);
+    write_audio_file(input_file, 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 128, 2);
 
     const auto file_result = util::inspect_input_path(input_file);
     assert(file_result.input_mode == core::InputMode::File);
@@ -179,8 +204,8 @@ void test_directory_conversion()
     fs::create_directories(nested_dir);
     fs::create_directories(output_dir);
 
-    write_wave(input_dir / "song.wav", 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256, 2);
-    write_wave(nested_dir / "deep.wav", 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256, 2);
+    write_audio_file(input_dir / "song.wav", 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256, 2);
+    write_audio_file(nested_dir / "deep.wav", 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256, 2);
     std::ofstream(input_dir / "notes.txt") << "ignore";
 
     const core::ConversionSettings settings {
@@ -240,7 +265,7 @@ void test_selected_input_paths_filter_unsupported_extensions()
 
     const auto supported_input = input_dir / "song.wav";
     const auto unsupported_input = input_dir / "notes.txt";
-    write_wave(supported_input, 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256, 2);
+    write_audio_file(supported_input, 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256, 2);
     std::ofstream(unsupported_input) << "ignore";
 
     const core::ConversionSettings settings {
@@ -271,8 +296,8 @@ void test_input_preview()
     const auto nested_dir = input_dir / "nested";
     fs::create_directories(nested_dir);
 
-    write_wave(input_dir / "b-song.wav", 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256, 2);
-    write_wave(nested_dir / "c-deep.wav", 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256, 2);
+    write_audio_file(input_dir / "b-song.wav", 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256, 2);
+    write_audio_file(nested_dir / "c-deep.wav", 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256, 2);
     std::ofstream(input_dir / "a-notes.txt") << "ignore";
 
     const auto preview = core::preview_input_files({
@@ -334,7 +359,7 @@ void test_overwrite_extension_change()
 {
     const auto dir = make_temp_dir();
     const auto input_file = dir / "mix.wav";
-    write_wave(input_file, 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256, 2);
+    write_audio_file(input_file, 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256, 2);
 
     const core::ConversionSettings settings {
         .input_path = input_file.string(),
@@ -364,7 +389,7 @@ void test_mono_conversion()
     const auto dir = make_temp_dir();
     const auto input_file = dir / "mono.wav";
     const auto output_file = dir / "mono_converted.aiff";
-    write_wave(input_file, 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256, 1);
+    write_audio_file(input_file, 48000, SF_FORMAT_WAV | SF_FORMAT_PCM_16, 256, 1);
 
     const auto result = audio::convert_audio_file({
         .input_path = input_file,
@@ -382,6 +407,54 @@ void test_mono_conversion()
     assert(info.samplerate == 44100);
 }
 
+void test_supported_input_format_conversion()
+{
+    const auto dir = make_temp_dir();
+    const auto input_dir = dir / "input";
+    const auto output_dir = dir / "output";
+    fs::create_directories(input_dir);
+    fs::create_directories(output_dir);
+
+    write_audio_file(input_dir / "album.flac", 44100, SF_FORMAT_FLAC | SF_FORMAT_PCM_16, 4096, 2);
+    write_audio_file(input_dir / "voice.caf", 44100, SF_FORMAT_CAF | SF_FORMAT_PCM_16, 4096, 1);
+    copy_fixture_file("sample-input.ogg", input_dir / "stream.ogg");
+    copy_fixture_file("sample-input.mp3", input_dir / "mix.mp3");
+
+    const core::ConversionSettings settings {
+        .input_path = input_dir.string(),
+        .input_mode = core::InputMode::Directory,
+        .output_mode = core::OutputMode::WriteNewFiles,
+        .output_directory = output_dir.string(),
+        .file_name_rule = core::FileNameRule::Prefix,
+        .file_name_affix = "converted_",
+        .sample_rate = 48000,
+        .output_format = core::OutputFormat::Wav,
+        .bit_depth = core::BitDepth::Pcm16,
+    };
+
+    const auto result = core::run_conversion(settings);
+    assert(result.total_files == 4);
+    assert(result.success_count == 4);
+    assert(result.failed_count == 0);
+    assert(result.skipped_count == 0);
+
+    const std::vector<std::pair<fs::path, int>> outputs {
+        { output_dir / "converted_album.wav", 2 },
+        { output_dir / "converted_voice.wav", 1 },
+        { output_dir / "converted_stream.wav", 2 },
+        { output_dir / "converted_mix.wav", 1 },
+    };
+
+    for (const auto &[path, channels] : outputs) {
+        assert(fs::exists(path));
+        const auto info = read_info(path);
+        assert((info.format & SF_FORMAT_TYPEMASK) == SF_FORMAT_WAV);
+        assert((info.format & SF_FORMAT_SUBMASK) == SF_FORMAT_PCM_16);
+        assert(info.channels == channels);
+        assert(info.samplerate == 48000);
+    }
+}
+
 } // namespace
 
 int main()
@@ -395,5 +468,6 @@ int main()
     test_input_preview();
     test_overwrite_extension_change();
     test_mono_conversion();
+    test_supported_input_format_conversion();
     return 0;
 }

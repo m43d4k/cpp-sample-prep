@@ -3,15 +3,16 @@
 GUI audio converter for common audio inputs with WAV / AIFF output.
 
 ## 概要
-`cpp-audio-converter` は、macOS / Linux 向けの GUI オーディオコンバーターです。  
+`cpp-audio-converter` は、macOS 向けの GUI オーディオコンバーターです。  
 WAV / AIFF / FLAC / MP3 / OGG / CAF の読み込みと、WAV / AIFF の書き出し、サンプリングレート変換、bit depth 変換を行います。
+
+Linux 対応はひとまず見送っています。
 
 変換エンジンには `r8brain-free-src` を使用し、音声ファイルの読み書きには `libsndfile` を使用します。  
 GUI は `Slint`、ビルドは `CMake + Ninja` を前提としています。
 
 ## 対応OS
 - macOS
-- Linux
 
 ## 主な機能
 - GUI から音声ファイルを一括変換
@@ -89,22 +90,10 @@ Sample rate converter designed by Aleksey Vaneev of Voxengo.
 - ninja
 - libsndfile
 
-### Linux
-- C++20 対応コンパイラ
-- cmake
-- ninja
-- libsndfile
-- pkg-config
-- git
-
 ## ビルド
 ### macOS
     cmake --preset local-llvm
     cmake --build --preset local-llvm
-
-### Linux
-    cmake -S . -B build -G Ninja
-    cmake --build build
 
 ## 文書
 - `spec.md`
@@ -120,6 +109,7 @@ Sample rate converter designed by Aleksey Vaneev of Voxengo.
 - `r8brain-free-src` は必ず内蔵する
 - `libsndfile` は外部依存として扱う
 - Python / Node.js は必須としない
+- Linux 対応は後続タスクとして扱う
 
 ## ライセンス
 ライセンスは未定。
