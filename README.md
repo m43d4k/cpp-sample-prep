@@ -33,6 +33,8 @@ GUI は `Slint`、ビルドは `CMake + Ninja` を前提としています。
   - 24 bit PCM
   - 32 bit PCM
 - 上書き保存
+- 元ファイルと同じディレクトリへの別名保存
+  - prefix / postfix を付けて保存
 - 別名保存
   - prefix / postfix のどちらか一方を指定
   - フォルダ入力時は出力先でも相対フォルダ構造を維持

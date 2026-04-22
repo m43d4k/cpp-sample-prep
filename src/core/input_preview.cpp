@@ -12,6 +12,17 @@ namespace audio_converter::core {
 
 namespace {
 
+OutputMode preview_output_mode(const InputPreviewRequest &request)
+{
+    if (request.overwrite_originals) {
+        return OutputMode::OverwriteOriginals;
+    }
+    if (request.use_source_file_directory) {
+        return OutputMode::WriteNewFilesInSourceDirectory;
+    }
+    return OutputMode::WriteNewFiles;
+}
+
 std::string display_directory(const std::filesystem::path &path)
 {
     if (path.empty()) {
@@ -53,7 +64,8 @@ std::string resolve_output_name(
         return "-";
     }
 
-    if (request.overwrite_originals) {
+    const auto output_mode = preview_output_mode(request);
+    if (output_mode == OutputMode::OverwriteOriginals) {
         return util::replacement_output_path(input_path, *output_format).filename().string();
     }
 
@@ -66,7 +78,7 @@ std::string resolve_output_name(
         .input_path = input_selection.input_path,
         .input_mode = input_selection.input_mode,
         .selected_input_paths = input_selection.selected_input_paths,
-        .output_mode = OutputMode::WriteNewFiles,
+        .output_mode = output_mode,
         .output_directory = request.output_directory,
         .file_name_rule = *file_name_rule,
         .file_name_affix = resolve_file_name_affix(*file_name_rule, request.file_name_affix),
@@ -85,11 +97,12 @@ std::string resolve_output_path(
         return "-";
     }
 
-    if (request.overwrite_originals) {
+    const auto output_mode = preview_output_mode(request);
+    if (output_mode == OutputMode::OverwriteOriginals) {
         return display_directory(util::replacement_output_path(input_path, *output_format).parent_path());
     }
 
-    if (request.output_directory.empty()) {
+    if (output_mode == OutputMode::WriteNewFiles && request.output_directory.empty()) {
         return "-";
     }
 
@@ -102,7 +115,7 @@ std::string resolve_output_path(
         .input_path = input_selection.input_path,
         .input_mode = input_selection.input_mode,
         .selected_input_paths = input_selection.selected_input_paths,
-        .output_mode = OutputMode::WriteNewFiles,
+        .output_mode = output_mode,
         .output_directory = request.output_directory,
         .file_name_rule = *file_name_rule,
         .file_name_affix = resolve_file_name_affix(*file_name_rule, request.file_name_affix),

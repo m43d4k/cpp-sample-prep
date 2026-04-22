@@ -88,15 +88,15 @@ RunItem make_run_item(std::size_t index, const std::filesystem::path &input, con
     return {
         .index = index,
         .input_path = input,
-        .final_output_path = settings.output_mode == OutputMode::WriteNewFiles
-            ? util::build_output_path(input, settings)
-            : util::replacement_output_path(input, settings.output_format),
+        .final_output_path = settings.output_mode == OutputMode::OverwriteOriginals
+            ? util::replacement_output_path(input, settings.output_format)
+            : util::build_output_path(input, settings),
     };
 }
 
 std::optional<FileOutcome> preflight_run_item(const RunItem &item, const ConversionSettings &settings)
 {
-    if (settings.output_mode == OutputMode::WriteNewFiles && std::filesystem::exists(item.final_output_path)) {
+    if (settings.output_mode != OutputMode::OverwriteOriginals && std::filesystem::exists(item.final_output_path)) {
         return FileOutcome {
             .status = RunFileStatus::Skipped,
             .detail = "output file already exists: " + display_path(item.final_output_path),

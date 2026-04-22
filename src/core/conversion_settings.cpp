@@ -183,7 +183,11 @@ BuildSettingsResult build_settings(const UiSettingsInput &input)
     ConversionSettings settings;
 
     settings.input_path = input.input_path;
-    settings.output_mode = input.overwrite_originals ? OutputMode::OverwriteOriginals : OutputMode::WriteNewFiles;
+    settings.output_mode = input.overwrite_originals
+        ? OutputMode::OverwriteOriginals
+        : (input.use_source_file_directory
+              ? OutputMode::WriteNewFilesInSourceDirectory
+              : OutputMode::WriteNewFiles);
     settings.output_directory = input.output_directory;
     settings.file_name_affix = input.file_name_affix;
 
@@ -236,6 +240,9 @@ BuildSettingsResult build_settings(const UiSettingsInput &input)
                 result.errors.emplace_back("Output directory must be a directory.");
             }
         }
+    }
+
+    if (settings.output_mode != OutputMode::OverwriteOriginals) {
         if (settings.file_name_affix.empty()) {
             result.errors.emplace_back("Prefix or postfix text is required when overwrite is disabled.");
         } else if (contains_path_separator(settings.file_name_affix)) {
@@ -268,6 +275,8 @@ std::string to_string(OutputMode value)
         return "Overwrite original files";
     case OutputMode::WriteNewFiles:
         return "Write new files";
+    case OutputMode::WriteNewFilesInSourceDirectory:
+        return "Use source file directory";
     }
     return "Unknown";
 }

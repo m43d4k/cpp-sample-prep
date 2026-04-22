@@ -117,9 +117,11 @@ export component MainWindow inherits Window {
         + root.column_info_width
         + root.column_output_width;
     private property <length> column_output_path_min_width: 140px;
+    private property <bool> output_directory_locked: root.overwrite_originals || root.use_source_file_directory;
 
     in-out property <string> input_path;
     in-out property <bool> overwrite_originals;
+    in-out property <bool> use_source_file_directory;
     in-out property <string> output_directory;
     in-out property <int> file_name_rule_index;
     in-out property <string> file_name_affix;
@@ -411,6 +413,21 @@ export component MainWindow inherits Window {
                                 checked <=> root.overwrite_originals;
                                 enabled: !root.is_running;
                                 toggled => {
+                                    if (root.overwrite_originals) {
+                                        root.use_source_file_directory = false;
+                                    }
+                                    root.request_refresh_input_preview();
+                                }
+                            }
+
+                            CheckBox {
+                                text: "Use source file directory";
+                                checked <=> root.use_source_file_directory;
+                                enabled: !root.is_running;
+                                toggled => {
+                                    if (root.use_source_file_directory) {
+                                        root.overwrite_originals = false;
+                                    }
                                     root.request_refresh_input_preview();
                                 }
                             }
@@ -424,7 +441,7 @@ export component MainWindow inherits Window {
                         Text { text: "Output directory"; }
                         LineEdit {
                             text <=> root.output_directory;
-                            enabled: !root.overwrite_originals && !root.is_running;
+                            enabled: !root.output_directory_locked && !root.is_running;
                             min-height: root.control_row_height;
                             max-height: root.control_row_height;
                             placeholder-text: "/path/to/output-directory";
@@ -453,7 +470,7 @@ export component MainWindow inherits Window {
                                 Button {
                                     text: "Select Output";
                                     horizontal-stretch: 0;
-                                    enabled: !root.overwrite_originals && !root.is_running;
+                                    enabled: !root.output_directory_locked && !root.is_running;
                                     min-height: root.control_row_height;
                                     max-height: root.control_row_height;
                                     clicked => {

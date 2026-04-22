@@ -87,6 +87,7 @@ core::UiSettingsInput read_ui_settings(const ui::MainWindow &window, const Input
         .input_path = std::string(window.get_input_path()),
         .selected_input_paths = input_selection.explicit_file_paths,
         .overwrite_originals = window.get_overwrite_originals(),
+        .use_source_file_directory = window.get_use_source_file_directory(),
         .output_directory = std::string(window.get_output_directory()),
         .file_name_rule_index = window.get_file_name_rule_index(),
         .file_name_affix = std::string(window.get_file_name_affix()),
@@ -102,6 +103,7 @@ core::InputPreviewRequest read_input_preview_request(const ui::MainWindow &windo
         .input_path = std::string(window.get_input_path()),
         .selected_input_paths = input_selection.explicit_file_paths,
         .overwrite_originals = window.get_overwrite_originals(),
+        .use_source_file_directory = window.get_use_source_file_directory(),
         .output_directory = std::string(window.get_output_directory()),
         .file_name_rule_index = window.get_file_name_rule_index(),
         .file_name_affix = std::string(window.get_file_name_affix()),
@@ -392,6 +394,7 @@ int main()
     std::jthread worker_thread;
 
     window->set_overwrite_originals(false);
+    window->set_use_source_file_directory(false);
     window->set_file_name_rule_index(0);
     window->set_file_name_affix(to_shared_string(std::string(core::default_file_name_affix(core::FileNameRule::Prefix))));
     window->set_sample_rate_index(0);

@@ -21,6 +21,7 @@ struct InputPreviewRequest {
     std::string input_path;
     std::vector<std::filesystem::path> selected_input_paths;
     bool overwrite_originals { false };
+    bool use_source_file_directory { false };
     std::string output_directory;
     int file_name_rule_index { 0 };
     std::string file_name_affix;

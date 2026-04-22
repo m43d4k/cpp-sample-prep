@@ -160,6 +160,9 @@ std::filesystem::path output_parent_directory(
     const std::filesystem::path &input_path,
     const core::ConversionSettings &settings)
 {
+    if (settings.output_mode == core::OutputMode::WriteNewFilesInSourceDirectory) {
+        return input_path.parent_path();
+    }
     return std::filesystem::path(settings.output_directory) / relative_output_directory(input_path, settings);
 }
 
