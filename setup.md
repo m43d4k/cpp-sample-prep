@@ -81,6 +81,13 @@ Homebrew を使う前提。
     cmake --preset local-llvm
     cmake --build --preset local-llvm
 
+ローカル起動:
+    ./build/cpp_audio_converter
+
+補足:
+- `./build/cpp_audio_converter` は `build/SamplePrep.app/Contents/MacOS/SamplePrep` を起動するランチャー
+- `.app` の build 自体は `build/SamplePrep.app`
+
 ### 6. `.app` の stage
     cmake --build --preset local-llvm --target stage_macos_app
 
@@ -106,7 +113,6 @@ Homebrew を使う前提。
 - ZIP の中には `.app` と `README.txt` を含める
 
 補足:
-- `.app` の build 自体は `build/SamplePrep.app`
 - `stage_macos_app` と `package_macos_zip` は `fixup_bundle` を使って `libsndfile` と従属 dylib をアプリ内へコピーする
 - bundle identifier を変える場合は configure 時に `-DSAMPLEPREP_BUNDLE_IDENTIFIER=...` を付ける
 

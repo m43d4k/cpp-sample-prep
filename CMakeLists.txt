@@ -67,6 +67,7 @@ add_executable(sampleprep
     src/main.cpp
 )
 
+target_compile_definitions(sampleprep PRIVATE SAMPLEPREP_APP_VERSION="${PROJECT_VERSION}")
 target_include_directories(sampleprep PRIVATE src)
 target_link_libraries(sampleprep PRIVATE Slint::Slint sampleprep_lib)
 set_target_properties(sampleprep PROPERTIES
@@ -85,6 +86,7 @@ if(APPLE)
     set(SAMPLEPREP_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
     set(SAMPLEPREP_GENERATED_ICON "${SAMPLEPREP_GENERATED_DIR}/${SAMPLEPREP_ICON_FILE_NAME}")
     set(SAMPLEPREP_GENERATED_INFO_PLIST "${SAMPLEPREP_GENERATED_DIR}/Info.plist")
+    set(SAMPLEPREP_TERMINAL_LAUNCHER "${CMAKE_CURRENT_BINARY_DIR}/cpp_audio_converter")
     set(SAMPLEPREP_PLACEHOLDER_ICON
         "/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/GenericApplicationIcon.icns")
 
@@ -108,6 +110,18 @@ if(APPLE)
         "${CMAKE_SOURCE_DIR}/cmake/Info.plist.in"
         "${SAMPLEPREP_GENERATED_INFO_PLIST}"
         @ONLY
+    )
+
+    configure_file(
+        "${CMAKE_SOURCE_DIR}/cmake/LaunchSamplePrep.in"
+        "${SAMPLEPREP_TERMINAL_LAUNCHER}"
+        @ONLY
+    )
+    file(CHMOD "${SAMPLEPREP_TERMINAL_LAUNCHER}"
+        PERMISSIONS
+            OWNER_READ OWNER_WRITE OWNER_EXECUTE
+            GROUP_READ GROUP_EXECUTE
+            WORLD_READ WORLD_EXECUTE
     )
 
     set_source_files_properties("${SAMPLEPREP_GENERATED_ICON}" PROPERTIES

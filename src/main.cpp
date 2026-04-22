@@ -21,6 +21,10 @@
 namespace core = sampleprep::core;
 namespace util = sampleprep::util;
 
+#ifndef SAMPLEPREP_APP_VERSION
+#define SAMPLEPREP_APP_VERSION "0.1.0"
+#endif
+
 namespace {
 
 struct TargetFileTableState {
@@ -403,6 +407,8 @@ int main()
     window->set_bit_depth_index(1);
     window->set_cpu_core_count_index(0);
     window->set_is_running(false);
+    window->set_show_about_dialog(false);
+    window->set_app_version(to_shared_string(SAMPLEPREP_APP_VERSION));
     window->set_status_text("Select input files or a folder");
     window->set_progress_value(0.0f);
     window->set_target_files_summary(to_shared_string(""));

@@ -103,6 +103,7 @@ Sample rate converter designed by Aleksey Vaneev of Voxengo.
     cmake --build --preset local-llvm
 
 ビルド後、ローカル起動用の `.app` は `build/SamplePrep.app` に生成される。
+ターミナルからは `./build/cpp_audio_converter` で起動できる。
 
 ### self-contained `.app` の stage
     cmake --build --preset local-llvm --target stage_macos_app

@@ -103,6 +103,7 @@ export component MainWindow inherits Window {
     private property <length> action_spacing: 6px;
     private property <length> control_row_height: 22px;
     private property <length> table_row_height: 34px;
+    private property <length> about_dialog_width: 360px;
     private property <length> file_name_rule_width: 280px;
     private property <length> file_name_affix_width: 280px;
     private property <length> output_mode_checkbox_width: 220px;
@@ -119,6 +120,8 @@ export component MainWindow inherits Window {
         + root.column_output_width;
     private property <length> column_output_path_min_width: 140px;
     private property <bool> output_directory_locked: root.overwrite_originals || root.use_source_file_directory;
+    private property <string> creator_name: "Warf Arcana";
+    private property <string> creator_url: "https://warfarcana.com/";
 
     in-out property <string> input_path;
     in-out property <bool> overwrite_originals;
@@ -133,6 +136,8 @@ export component MainWindow inherits Window {
     in-out property <float> progress_value;
     in-out property <string> status_text;
     in-out property <bool> is_running;
+    in-out property <bool> show_about_dialog;
+    in-out property <string> app_version;
     in-out property <string> target_files_summary;
     in property <[TargetFileRow]> target_file_rows;
     in property <[string]> log_lines;
@@ -254,6 +259,17 @@ export component MainWindow inherits Window {
 
                             Rectangle {
                                 background: transparent;
+                            }
+
+                            Button {
+                                text: "About";
+                                horizontal-stretch: 0;
+                                enabled: !root.show_about_dialog;
+                                min-height: root.control_row_height;
+                                max-height: root.control_row_height;
+                                clicked => {
+                                    root.show_about_dialog = true;
+                                }
                             }
                         }
                     }
@@ -670,6 +686,80 @@ export component MainWindow inherits Window {
                                 horizontal-alignment: left;
                                 vertical-alignment: center;
                             }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if root.show_about_dialog : Rectangle {
+        x: 0;
+        y: 0;
+        width: parent.width;
+        height: parent.height;
+        background: #00000066;
+
+        TouchArea {
+            x: 0;
+            y: 0;
+            width: parent.width;
+            height: parent.height;
+            clicked => {
+                root.show_about_dialog = false;
+            }
+        }
+
+        Rectangle {
+            width: min(root.about_dialog_width, parent.width - 32px);
+            height: 190px;
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            background: Palette.background;
+            border-width: 1px;
+            border-color: Palette.border;
+            border-radius: 8px;
+
+            VerticalBox {
+                padding: 16px;
+                spacing: 10px;
+                alignment: start;
+
+                Text {
+                    text: "About SamplePrep";
+                    font-size: 18px;
+                    font-weight: 600;
+                }
+
+                Text {
+                    text: "Version: " + root.app_version;
+                }
+
+                Text {
+                    text: "Created by: " + root.creator_name;
+                }
+
+                Text {
+                    text: root.creator_url;
+                    color: Palette.selection-background;
+                }
+
+                Rectangle {
+                    background: transparent;
+                }
+
+                HorizontalLayout {
+                    spacing: 0px;
+
+                    Rectangle {
+                        background: transparent;
+                    }
+
+                    Button {
+                        text: "Close";
+                        horizontal-stretch: 0;
+                        clicked => {
+                            root.show_about_dialog = false;
                         }
                     }
                 }
