@@ -250,7 +250,6 @@ void apply_dropped_input_paths(
         return;
     }
 
-    append_log(window, log_store, "Status: input updated from drag and drop.");
     window.set_status_text("Input updated");
 }
 
@@ -404,14 +403,12 @@ int main()
     window->set_output_format_index(0);
     window->set_bit_depth_index(1);
     window->set_is_running(false);
-    window->set_status_text("Idle");
+    window->set_status_text("Select input files or a folder");
     window->set_progress_value(0.0f);
     window->set_target_files_summary(to_shared_string(""));
     target_file_table.model = to_target_file_model({});
     window->set_target_file_rows(target_file_table.model);
 
-    log_store.push("Status: select input files or a folder.");
-    log_store.push("Status: supported input formats are WAV / AIFF / FLAC / MP3 / OGG / CAF.");
     sync_log_view(*window, log_store);
 
     window->on_request_pick_input_files(
@@ -556,7 +553,6 @@ int main()
         window->set_status_text("Running");
         window->set_progress_value(0.0f);
         prepare_target_file_rows_for_run(*window, target_file_table);
-        log_store.push("Status: validation passed.");
         sync_log_view(*window, log_store);
 
         worker_thread = std::jthread([weak_window, &log_store, &target_file_table, &is_running, settings = std::move(settings)] {
@@ -612,22 +608,18 @@ int main()
     window->show();
 
     std::string drop_error_message;
-    if (!util::install_native_file_drop_handler(
-            [weak_window = slint::ComponentWeakHandle(window), &log_store, &target_file_table, &input_selection](
-                util::NativeDropEvent event) mutable {
-                const auto maybe_window = weak_window.lock();
-                if (!maybe_window.has_value()) {
-                    return;
-                }
+    util::install_native_file_drop_handler(
+        [weak_window = slint::ComponentWeakHandle(window), &log_store, &target_file_table, &input_selection](
+            util::NativeDropEvent event) mutable {
+            const auto maybe_window = weak_window.lock();
+            if (!maybe_window.has_value()) {
+                return;
+            }
 
-                auto window = *maybe_window;
-                apply_dropped_input_paths(*window, log_store, target_file_table, input_selection, event);
-            },
-            drop_error_message)) {
-        append_log(*window, log_store, "Status: drag and drop unavailable (" + drop_error_message + ").");
-    } else {
-        append_log(*window, log_store, "Status: drag and drop is enabled for multiple files or a single folder.");
-    }
+            auto window = *maybe_window;
+            apply_dropped_input_paths(*window, log_store, target_file_table, input_selection, event);
+        },
+        drop_error_message);
 
     slint::run_event_loop();
     return 0;

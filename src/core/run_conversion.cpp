@@ -76,7 +76,6 @@ RunConversionResult run_conversion(const ConversionSettings &settings, const Run
     }
 
     result.total_files = static_cast<int>(inputs.size());
-    emit_log(callbacks, "Status: found " + std::to_string(result.total_files) + " input file(s).");
     emit_progress(callbacks, 0.0f, "Running 0/" + std::to_string(result.total_files));
 
     for (std::size_t index = 0; index < inputs.size(); ++index) {
@@ -178,7 +177,6 @@ RunConversionResult run_conversion(const ConversionSettings &settings, const Run
 
     result.status_text = make_summary(result);
     result.progress_value = 1.0f;
-    emit_log(callbacks, "Status: " + result.status_text);
     emit_progress(callbacks, result.progress_value, result.status_text);
     return result;
 }

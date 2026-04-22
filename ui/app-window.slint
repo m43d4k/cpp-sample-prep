@@ -630,7 +630,10 @@ export component MainWindow inherits Window {
                             height: 24px;
 
                             Text {
+                                width: parent.width;
+                                height: parent.height;
                                 text: line;
+                                horizontal-alignment: left;
                                 vertical-alignment: center;
                             }
                         }
