@@ -105,6 +105,7 @@ export component MainWindow inherits Window {
     private property <length> table_row_height: 34px;
     private property <length> file_name_rule_width: 280px;
     private property <length> file_name_affix_width: 280px;
+    private property <length> output_mode_checkbox_width: 220px;
     private property <length> checkbox_align_offset: 10px;
     private property <length> column_input_width: 110px;
     private property <length> column_input_path_width: 180px;
@@ -407,8 +408,10 @@ export component MainWindow inherits Window {
                             width: parent.width;
                             height: parent.height;
                             padding-left: root.checkbox_align_offset;
+                            spacing: root.inline_spacing;
 
                             CheckBox {
+                                width: root.output_mode_checkbox_width;
                                 text: "Overwrite original files";
                                 checked <=> root.overwrite_originals;
                                 enabled: !root.is_running;
@@ -421,6 +424,7 @@ export component MainWindow inherits Window {
                             }
 
                             CheckBox {
+                                width: root.output_mode_checkbox_width;
                                 text: "Use source file directory";
                                 checked <=> root.use_source_file_directory;
                                 enabled: !root.is_running;
