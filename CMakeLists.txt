@@ -88,22 +88,22 @@ if(APPLE)
     set(SAMPLEPREP_GENERATED_ICON "${SAMPLEPREP_GENERATED_DIR}/${SAMPLEPREP_ICON_FILE_NAME}")
     set(SAMPLEPREP_GENERATED_INFO_PLIST "${SAMPLEPREP_GENERATED_DIR}/Info.plist")
     set(SAMPLEPREP_TERMINAL_LAUNCHER "${CMAKE_CURRENT_BINARY_DIR}/cpp_audio_converter")
-    set(SAMPLEPREP_PLACEHOLDER_ICON
-        "/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/GenericApplicationIcon.icns")
+    set(SAMPLEPREP_SOURCE_ICON
+        "${CMAKE_SOURCE_DIR}/assets/macos/${SAMPLEPREP_ICON_FILE_NAME}")
 
     file(MAKE_DIRECTORY "${SAMPLEPREP_GENERATED_DIR}")
 
-    if(NOT EXISTS "${SAMPLEPREP_PLACEHOLDER_ICON}")
-        message(FATAL_ERROR "Placeholder icon was not found at ${SAMPLEPREP_PLACEHOLDER_ICON}")
+    if(NOT EXISTS "${SAMPLEPREP_SOURCE_ICON}")
+        message(FATAL_ERROR "App icon was not found at ${SAMPLEPREP_SOURCE_ICON}")
     endif()
 
     add_custom_command(
         OUTPUT "${SAMPLEPREP_GENERATED_ICON}"
         COMMAND "${CMAKE_COMMAND}" -E make_directory "${SAMPLEPREP_GENERATED_DIR}"
         COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-            "${SAMPLEPREP_PLACEHOLDER_ICON}"
+            "${SAMPLEPREP_SOURCE_ICON}"
             "${SAMPLEPREP_GENERATED_ICON}"
-        COMMENT "Copying placeholder macOS app icon"
+        COMMENT "Copying macOS app icon"
         VERBATIM
     )
 
