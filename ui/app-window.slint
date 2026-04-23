@@ -104,6 +104,10 @@ export component MainWindow inherits Window {
     private property <length> control_row_height: 22px;
     private property <length> table_row_height: 34px;
     private property <length> about_dialog_width: 360px;
+    private property <length> about_dialog_padding: 16px;
+    private property <length> about_dialog_spacing: 10px;
+    private property <length> about_logo_width: 124px;
+    private property <length> about_logo_height: 108px;
     private property <length> file_name_rule_width: 280px;
     private property <length> file_name_affix_width: 280px;
     private property <length> output_mode_checkbox_width: 220px;
@@ -122,6 +126,7 @@ export component MainWindow inherits Window {
     private property <bool> output_directory_locked: root.overwrite_originals || root.use_source_file_directory;
     private property <string> creator_name: "Warf ARCANA";
     private property <string> creator_url: "https://warfarcana.com/";
+    private property <image> about_logo: @image-url("assets/footer-logo3.svg");
 
     in-out property <string> input_path;
     in-out property <bool> overwrite_originals;
@@ -713,7 +718,10 @@ export component MainWindow inherits Window {
 
         Rectangle {
             width: min(root.about_dialog_width, parent.width - 32px);
-            height: 190px;
+            height: root.about_dialog_padding * 2
+                + max(about-text-column.preferred-height, root.about_logo_height)
+                + close-button.preferred-height
+                + root.about_dialog_spacing;
             x: (parent.width - self.width) / 2;
             y: (parent.height - self.height) / 2;
             background: Palette.background;
@@ -721,71 +729,95 @@ export component MainWindow inherits Window {
             border-color: Palette.border;
             border-radius: 8px;
 
-            VerticalBox {
-                padding: 16px;
-                spacing: 10px;
+            about-content := VerticalBox {
+                padding: root.about_dialog_padding;
+                spacing: root.about_dialog_spacing;
                 alignment: start;
-
-                Text {
-                    text: "SamplePrep";
-                    font-size: 18px;
-                    font-weight: 600;
-                }
-
-                Text {
-                    text: "Version: " + root.app_version;
-                }
-
-                Text {
-                    text: "Created by: " + root.creator_name;
-                }
 
                 Rectangle {
                     background: transparent;
                     width: 100%;
-                    height: creator-link.preferred-height;
+                    height: max(about-text-column.preferred-height, root.about_logo_height);
 
-                    creator-link := Text {
+                    about-text-column := VerticalBox {
                         x: 0px;
                         y: 0px;
-                        width: self.preferred-width;
-                        text: root.creator_url;
-                        horizontal-alignment: left;
-                        color: creator-link-area.has-hover ? Palette.selection-background.brighter(0.2) : Palette.selection-background;
-                    }
+                        width: parent.width - root.about_logo_width - root.about_dialog_spacing;
+                        spacing: root.about_dialog_spacing;
+                        alignment: start;
 
-                    Rectangle {
-                        x: creator-link.x;
-                        y: creator-link.y + creator-link.preferred-height - 1px;
-                        width: creator-link.preferred-width;
-                        height: 1px;
-                        background: creator-link.color;
-                    }
+                        about-title := Text {
+                            text: "SamplePrep";
+                            font-size: 18px;
+                            font-weight: 600;
+                        }
 
-                    creator-link-area := TouchArea {
-                        x: 0px;
-                        y: 0px;
-                        width: creator-link.preferred-width;
-                        height: creator-link.preferred-height;
-                        mouse-cursor: pointer;
-                        clicked => {
-                            root.request_open_url(root.creator_url);
+                        about-version := Text {
+                            text: "Version: " + root.app_version;
+                        }
+
+                        about-creator := Text {
+                            text: "Created by: " + root.creator_name;
+                        }
+
+                        Rectangle {
+                            background: transparent;
+                            width: 100%;
+                            height: creator-link.preferred-height;
+
+                            creator-link := Text {
+                                x: 0px;
+                                y: 0px;
+                                width: self.preferred-width;
+                                text: root.creator_url;
+                                horizontal-alignment: left;
+                                color: creator-link-area.has-hover ? Palette.selection-background.brighter(0.2) : Palette.selection-background;
+                            }
+
+                            Rectangle {
+                                x: creator-link.x;
+                                y: creator-link.y + creator-link.preferred-height - 1px;
+                                width: creator-link.preferred-width;
+                                height: 1px;
+                                background: creator-link.color;
+                            }
+
+                            creator-link-area := TouchArea {
+                                x: 0px;
+                                y: 0px;
+                                width: creator-link.preferred-width;
+                                height: creator-link.preferred-height;
+                                mouse-cursor: pointer;
+                                clicked => {
+                                    root.request_open_url(root.creator_url);
+                                }
+                            }
                         }
                     }
-                }
 
-                Rectangle {
-                    background: transparent;
+                    Image {
+                        x: parent.width - self.width;
+                        y: 0px;
+                        width: root.about_logo_width;
+                        height: root.about_logo_height;
+                        source: root.about_logo;
+                        image-fit: contain;
+                        horizontal-alignment: right;
+                        vertical-alignment: top;
+                        accessible-role: none;
+                    }
                 }
 
                 HorizontalLayout {
+                    height: close-button.preferred-height;
+                    vertical-stretch: 0;
                     spacing: 0px;
 
                     Rectangle {
                         background: transparent;
                     }
 
-                    Button {
+                    close-button := Button {
                         text: "Close";
                         horizontal-stretch: 0;
                         clicked => {
